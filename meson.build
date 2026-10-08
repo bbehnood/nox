@@ -13,6 +13,7 @@ add_project_arguments(
 
 src = files(
   'src/main.c',
+  'src/lexer.c',
 )
 
 inc = include_directories('src')
