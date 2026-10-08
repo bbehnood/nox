@@ -3,6 +3,7 @@
 #include "ast.h"
 #include "lexer.h"
 
+#include <errno.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -66,6 +67,12 @@ static ast_node_t* parse_primary(parser_t* parser)
         char* end = NULL;
 
         long value = strtol(buffer, &end, 10);
+
+        if (errno == ERANGE)
+        {
+            fprintf(stderr, "parser error: integer literal out of range\n");
+            return NULL;
+        }
 
         if (*end != '\0')
         {
