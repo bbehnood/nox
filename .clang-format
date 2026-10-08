@@ -1,0 +1,135 @@
+BasedOnStyle: LLVM
+
+# ─────────────────────────────────────────────
+# Language
+# ─────────────────────────────────────────────
+
+Language: C
+
+
+# ─────────────────────────────────────────────
+# Indentation
+# ─────────────────────────────────────────────
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
+
+IndentCaseLabels: false
+IndentGotoLabels: true
+IndentPPDirectives: None
+NamespaceIndentation: None
+
+
+# ─────────────────────────────────────────────
+# Braces
+# ─────────────────────────────────────────────
+
+BreakBeforeBraces: Allman
+
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: false
+
+
+# ─────────────────────────────────────────────
+# Line length / wrapping
+# ─────────────────────────────────────────────
+
+ColumnLimit: 80
+
+BinPackArguments: false
+BinPackParameters: false
+
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+
+BreakBeforeBinaryOperators: None
+BreakBeforeTernaryOperators: true
+
+
+# ─────────────────────────────────────────────
+# Pointers
+# ─────────────────────────────────────────────
+
+PointerAlignment: Left
+DerivePointerAlignment: false
+
+
+# ─────────────────────────────────────────────
+# Alignment
+# ─────────────────────────────────────────────
+
+AlignConsecutiveDeclarations:
+    Enabled: true
+    AcrossEmptyLines: false
+    AcrossComments: false
+
+AlignConsecutiveAssignments:
+    Enabled: true
+    AcrossEmptyLines: false
+    AcrossComments: false
+
+AlignConsecutiveMacros:
+    Enabled: true
+    AcrossEmptyLines: false
+    AcrossComments: false
+
+AlignOperands: Align
+AlignTrailingComments: true
+
+
+# ─────────────────────────────────────────────
+# Spaces
+# ─────────────────────────────────────────────
+
+SpaceBeforeParens: ControlStatements
+
+SpaceBeforeAssignmentOperators: true
+
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+SpacesInAngles: false
+
+SpaceAfterCStyleCast: false
+
+
+# ─────────────────────────────────────────────
+# Functions
+# ─────────────────────────────────────────────
+
+AlwaysBreakAfterReturnType: None
+AlwaysBreakAfterDefinitionReturnType: None
+
+PenaltyReturnTypeOnItsOwnLine: 1000
+
+
+# ─────────────────────────────────────────────
+# Includes
+# ─────────────────────────────────────────────
+
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+
+
+# ─────────────────────────────────────────────
+# Comments
+# ─────────────────────────────────────────────
+
+ReflowComments: true
+PenaltyBreakComment: 300
+
+SpacesBeforeTrailingComments: 2
+
+
+# ─────────────────────────────────────────────
+# Miscellaneous
+# ─────────────────────────────────────────────
+
+EmptyLineBeforeAccessModifier: LogicalBlock
+MaxEmptyLinesToKeep: 1
+
+KeepEmptyLinesAtTheStartOfBlocks: false
+KeepEmptyLinesAtEOF: false
+
