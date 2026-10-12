@@ -176,6 +176,6 @@ token_t lexer_next(lexer_t* lexer)
         return make_token(TOKEN_SEMICOLON, start, lexer->position);
 
     default:
-        return make_token(TOKEN_EOF, start, lexer->position);
+        return make_token(TOKEN_ERROR, start, lexer->position);
     }
 }

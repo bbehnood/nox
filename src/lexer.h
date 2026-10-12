@@ -18,6 +18,7 @@ typedef struct source_span
 typedef enum token_type
 {
     TOKEN_EOF,
+    TOKEN_ERROR,
 
     TOKEN_IDENTIFIER,
     TOKEN_INTEGER,
