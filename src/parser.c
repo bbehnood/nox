@@ -301,7 +301,7 @@ ast_node_t* parser_parse(parser_t* parser)
     while (!parser_check(parser, TOKEN_EOF))
     {
         ast_node_t* statement = parser_parse_statement(parser);
-        if (!statement || ast_program_push(program, statement))
+        if (!statement || !ast_program_push(program, statement))
         {
             ast_free(statement);
             ast_free(program);
