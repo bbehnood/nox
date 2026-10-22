@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static ast_node_t* parse_expression(parser_t* parser);
+static ast_node_t* parser_parse_expression(parser_t* parser);
 
 static void parser_advance(parser_t* parser)
 {
@@ -44,7 +44,7 @@ static bool parser_expect(parser_t* parser, token_type_t type)
     return true;
 }
 
-static ast_node_t* parse_primary(parser_t* parser)
+static ast_node_t* parser_parse_primary(parser_t* parser)
 {
     token_t token = parser->current;
 
@@ -91,7 +91,7 @@ static ast_node_t* parse_primary(parser_t* parser)
 
     if (parser_match(parser, TOKEN_LPAREN))
     {
-        ast_node_t* expression = parse_expression(parser);
+        ast_node_t* expression = parser_parse_expression(parser);
 
         if (!expression)
             return NULL;
@@ -110,9 +110,9 @@ static ast_node_t* parse_primary(parser_t* parser)
     return NULL;
 }
 
-static ast_node_t* parse_multiplicative(parser_t* parser)
+static ast_node_t* parser_parse_multiplicative(parser_t* parser)
 {
-    ast_node_t* left = parse_primary(parser);
+    ast_node_t* left = parser_parse_primary(parser);
     if (!left)
         return NULL;
 
@@ -127,7 +127,7 @@ static ast_node_t* parse_multiplicative(parser_t* parser)
         else
             break;
 
-        ast_node_t* right = parse_primary(parser);
+        ast_node_t* right = parser_parse_primary(parser);
         if (!right)
         {
             ast_free(left);
@@ -153,9 +153,9 @@ static ast_node_t* parse_multiplicative(parser_t* parser)
     return left;
 }
 
-static ast_node_t* parse_additive(parser_t* parser)
+static ast_node_t* parser_parse_additive(parser_t* parser)
 {
-    ast_node_t* left = parse_multiplicative(parser);
+    ast_node_t* left = parser_parse_multiplicative(parser);
     if (!left)
         return NULL;
 
@@ -170,7 +170,7 @@ static ast_node_t* parse_additive(parser_t* parser)
         else
             break;
 
-        ast_node_t* right = parse_multiplicative(parser);
+        ast_node_t* right = parser_parse_multiplicative(parser);
         if (!right)
         {
             ast_free(left);
@@ -196,12 +196,12 @@ static ast_node_t* parse_additive(parser_t* parser)
     return left;
 }
 
-static ast_node_t* parse_expression(parser_t* parser)
+static ast_node_t* parser_parse_expression(parser_t* parser)
 {
-    return parse_additive(parser);
+    return parser_parse_additive(parser);
 }
 
-static ast_node_t* parse_let(parser_t* parser)
+static ast_node_t* parser_parse_let(parser_t* parser)
 {
     if (!parser_check(parser, TOKEN_IDENTIFIER))
     {
@@ -216,7 +216,7 @@ static ast_node_t* parse_let(parser_t* parser)
     if (!parser_expect(parser, TOKEN_EQUALS))
         return NULL;
 
-    ast_node_t* value = parse_expression(parser);
+    ast_node_t* value = parser_parse_expression(parser);
     if (!value)
         return NULL;
 
@@ -234,14 +234,14 @@ static ast_node_t* parse_let(parser_t* parser)
     return ast_let(span, name.span, value);
 }
 
-static ast_node_t* parse_print(parser_t* parser)
+static ast_node_t* parser_parse_print(parser_t* parser)
 {
     size_t start = parser->previous.span.start;
 
     if (!parser_expect(parser, TOKEN_LPAREN))
         return NULL;
 
-    ast_node_t* value = parse_expression(parser);
+    ast_node_t* value = parser_parse_expression(parser);
     if (!value)
         return NULL;
 
@@ -269,12 +269,12 @@ ast_node_t* parser_parse_statement(parser_t* parser)
 {
     if (parser_match(parser, TOKEN_LET))
     {
-        return parse_let(parser);
+        return parser_parse_let(parser);
     }
 
     if (parser_match(parser, TOKEN_PRINT))
     {
-        return parse_print(parser);
+        return parser_parse_print(parser);
     }
 
     fprintf(stderr, "parser error: expected statement\n");
