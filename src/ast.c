@@ -124,7 +124,7 @@ bool ast_program_push(ast_node_t* program, ast_node_t* statement)
                                   : AST_PROGRAM_INITIAL_CAPACITY;
 
         ast_node_t** grown =
-            realloc(program->program.statements, new_capacity * sizeof(grown));
+            realloc(program->program.statements, new_capacity * sizeof(*grown));
         if (!grown)
             return false;
 
