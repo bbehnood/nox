@@ -66,6 +66,7 @@ static ast_node_t* parse_primary(parser_t* parser)
 
         char* end = NULL;
 
+        errno      = 0;
         long value = strtol(buffer, &end, 10);
 
         if (errno == ERANGE)
