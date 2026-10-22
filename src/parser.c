@@ -60,7 +60,7 @@ static ast_node_t* parse_primary(parser_t* parser)
             return NULL;
         }
 
-        memcpy(buffer, parser->source.data, length);
+        memcpy(buffer, parser->source.data + token.span.start, length);
 
         buffer[length] = '\0';
 
