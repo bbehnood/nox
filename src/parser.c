@@ -141,11 +141,7 @@ static ast_node_t* parser_parse_multiplicative(parser_t* parser)
 
         ast_node_t* binary = ast_binary(span, op, left, right);
         if (!binary)
-        {
-            ast_free(left);
-            ast_free(right);
             return NULL;
-        }
 
         left = binary;
     }
@@ -184,11 +180,7 @@ static ast_node_t* parser_parse_additive(parser_t* parser)
 
         ast_node_t* binary = ast_binary(span, op, left, right);
         if (!binary)
-        {
-            ast_free(left);
-            ast_free(right);
             return NULL;
-        }
 
         left = binary;
     }

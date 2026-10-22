@@ -5,6 +5,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+
 typedef enum ast_kind
 {
     AST_INTEGER,
