@@ -1,27 +1,52 @@
 project(
   'nox',
   'c',
+  version: '0.1.0',
+  license: 'Apache-2.0',
+  meson_version: '>=1.1',
   default_options: [
     'c_std=c11',
     'warning_level=3',
+    'buildtype=debugoptimized',
+    'b_ndebug=if-release',
+    'default_library=static',
   ],
 )
 
+fs = import('fs')
+cc = meson.get_compiler('c')
+
 add_project_arguments(
+  cc.get_supported_arguments(
+    '-Wshadow',
+    '-Wconversion',
+    '-Wmissing-prototypes',
+    '-Wstrict-prototypes',
+    '-Wvla',
+  ),
   language: 'c',
 )
 
-src = files(
-  'src/main.c',
-  'src/lexer.c',
-  'src/ast.c',
-  'src/parser.c',
+nox_lib = static_library(
+  'nox_core',
+  files(
+    'src/lexer.c',
+    'src/ast.c',
+    'src/parser.c',
+  ),
+  include_directories: include_directories('src'),
 )
 
-inc = include_directories('src')
+nox_dep = declare_dependency(
+  link_with: nox_lib,
+  include_directories: include_directories('src'),
+)
 
 executable(
   'nox',
-  src,
-  include_directories: inc,
+  'src/main.c',
+  dependencies: nox_dep,
+  install: true,
 )
+
+subdir('tests')
