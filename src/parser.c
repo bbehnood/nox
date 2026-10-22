@@ -195,6 +195,8 @@ static ast_node_t* parser_parse_expression(parser_t* parser)
 
 static ast_node_t* parser_parse_let(parser_t* parser)
 {
+    size_t start = parser->previous.span.start;
+
     if (!parser_check(parser, TOKEN_IDENTIFIER))
     {
         fprintf(stderr, "parser error: expected identifier after 'let'\n");
@@ -219,7 +221,7 @@ static ast_node_t* parser_parse_let(parser_t* parser)
     }
 
     source_span_t span = {
-        .start = name.span.start,
+        .start = start,
         .end   = parser->previous.span.end,
     };
 
