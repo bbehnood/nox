@@ -70,7 +70,7 @@ static void lexer_skip_whitespaces(lexer_t* lexer)
     }
 }
 
-token_t make_token(token_type_t type, size_t start, size_t end)
+static token_t make_token(token_type_t type, size_t start, size_t end)
 {
     token_t token;
 
