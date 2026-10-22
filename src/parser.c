@@ -299,3 +299,26 @@ void parser_init(parser_t* parser, source_t source)
             },
     };
 }
+
+ast_node_t* parser_parse(parser_t* parser)
+{
+    ast_node_t* program = ast_program();
+    if (!program)
+        return NULL;
+
+    while (!parser_check(parser, TOKEN_EOF))
+    {
+        ast_node_t* statement = parser_parse_statement(parser);
+        if (!statement || ast_program_push(program, statement))
+        {
+            ast_free(statement);
+            ast_free(program);
+            return NULL;
+        }
+    }
+
+    program->span.start = 0;
+    program->span.end   = parser->source.length;
+
+    return program;
+}
