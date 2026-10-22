@@ -2,8 +2,12 @@
 
 #include "lexer.h"
 
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <sys/types.h>
+
+#define AST_PROGRAM_INITIAL_CAPACITY (8)
 
 static ast_node_t* ast_alloc(ast_kind_t kind)
 {
@@ -87,6 +91,40 @@ ast_node_t* ast_print(source_span_t span, ast_node_t* value)
     return node;
 }
 
+ast_node_t* ast_program(void)
+{
+    ast_node_t* node = ast_alloc(AST_PROGRAM);
+    if (!node)
+        return NULL;
+
+    node->program.statements = NULL;
+    node->program.count      = 0;
+    node->program.capacity   = 0;
+
+    return node;
+}
+
+bool ast_program_push(ast_node_t* program, ast_node_t* statement)
+{
+    if (program->program.count == program->program.capacity)
+    {
+        size_t new_capacity = program->program.capacity
+                                  ? program->program.capacity * 2
+                                  : AST_PROGRAM_INITIAL_CAPACITY;
+
+        ast_node_t** grown =
+            realloc(program->program.statements, new_capacity * sizeof(grown));
+        if (!grown)
+            return false;
+
+        program->program.statements = grown;
+        program->program.capacity   = new_capacity;
+    }
+
+    program->program.statements[program->program.count++] = statement;
+    return true;
+}
+
 void ast_free(ast_node_t* node)
 {
     if (!node)
@@ -109,6 +147,12 @@ void ast_free(ast_node_t* node)
 
     case AST_INTEGER:
     case AST_IDENTIFIER:
+        break;
+
+    case AST_PROGRAM:
+        for (size_t i = 0; i < node->program.count; i++)
+            ast_free(node->program.statements[i]);
+        free(node->program.statements);
         break;
     }
 

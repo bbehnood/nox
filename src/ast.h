@@ -2,6 +2,9 @@
 #define AST_H
 
 #include "lexer.h"
+
+#include <stdbool.h>
+#include <stddef.h>
 typedef enum ast_kind
 {
     AST_INTEGER,
@@ -10,6 +13,8 @@ typedef enum ast_kind
 
     AST_LET,
     AST_PRINT,
+
+    AST_PROGRAM,
 } ast_kind_t;
 
 typedef enum binary_op
@@ -48,6 +53,13 @@ typedef struct ast_node
         {
             struct ast_node* value;
         } print;
+
+        struct
+        {
+            struct ast_node** statements;
+            size_t            count;
+            size_t            capacity;
+        } program;
     };
 } ast_node_t;
 
@@ -63,6 +75,10 @@ ast_node_t* ast_binary(source_span_t span,
 ast_node_t* ast_let(source_span_t span, source_span_t name, ast_node_t* value);
 
 ast_node_t* ast_print(source_span_t span, ast_node_t* value);
+
+ast_node_t* ast_program(void);
+
+bool ast_program_push(ast_node_t* program, ast_node_t* statement);
 
 void ast_free(ast_node_t* node);
 
