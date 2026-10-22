@@ -7,7 +7,6 @@
 #include <stdio.h>
 #include <string.h>
 
-/* Parse `text`. Caller owns the result (may be NULL on parse error). */
 static ast_node_t* parse(const char* text)
 {
     parser_t parser;
@@ -15,7 +14,6 @@ static ast_node_t* parse(const char* text)
     return parser_parse(&parser);
 }
 
-/* Parse text expected to be valid; returns the program node. */
 static ast_node_t* parse_ok(const char* text)
 {
     ast_node_t* program = parse(text);
@@ -27,16 +25,66 @@ static ast_node_t* parse_ok(const char* text)
 
 static void expect_fail(const char* text)
 {
-    fprintf(stderr, "  [expected error] ");
-    ast_node_t* program = parse(text);
+    parser_t parser;
+    parser_init(&parser, (source_t){.data = text, .length = strlen(text)});
+
+    ast_node_t* program = parser_parse(&parser);
     if (program)
         fprintf(stderr, "  \"%s\" should not have parsed\n", text);
     ASSERT(program == NULL);
     ast_free(program);
+
+    const diagnostic_t* d = parser_error(&parser);
+    if (!d)
+        fprintf(stderr, "  \"%s\" failed without a diagnostic\n", text);
+    ASSERT(d != NULL);
+
+    if (d)
+    {
+        ASSERT(d->message[0] != '\0');
+        ASSERT(strchr(d->message, '\n') == NULL);
+        ASSERT(d->span.start <= d->span.end);
+        ASSERT(d->span.end <= strlen(text));
+    }
 }
 
-/* Single statement `print(<expr>);` -> returns the expression node, owned by
- * `program`. */
+static void expect_diag(const char* text,
+                        const char* message,
+                        size_t      start,
+                        size_t      end)
+{
+    parser_t parser;
+    parser_init(&parser, (source_t){.data = text, .length = strlen(text)});
+
+    ast_node_t* program = parser_parse(&parser);
+    ASSERT(program == NULL);
+    ast_free(program);
+
+    const diagnostic_t* d = parser_error(&parser);
+    ASSERT(d != NULL);
+    if (!d)
+        return;
+
+    if (strcmp(d->message, message) != 0 || d->span.start != start ||
+        d->span.end != end)
+    {
+        fprintf(stderr,
+                "  in \"%s\":\n    got  [%zu,%zu) \"%s\"\n    want [%zu,%zu) "
+                "\"%s\"\n",
+                text,
+                d->span.start,
+                d->span.end,
+                d->message,
+                start,
+                end,
+                message);
+    }
+
+    ASSERT(strcmp(d->message, message) == 0);
+    ASSERT(d->span.start == start);
+    ASSERT(d->span.end == end);
+}
+
 static ast_node_t* expr_of(ast_node_t* program)
 {
     ASSERT(program && program->kind == AST_PROGRAM);
@@ -55,8 +103,6 @@ static bool is_bin(const ast_node_t* n, binary_op_t op)
 {
     return n && n->kind == AST_BINARY && n->binary.op == op;
 }
-
-/* ---- ast.c ------------------------------------------------------------- */
 
 static void test_ast_constructors(void)
 {
@@ -81,13 +127,13 @@ static void test_ast_constructors(void)
     ast_node_t* p = ast_print(sp, ast_integer(sp, 1));
     ASSERT(p && p->kind == AST_PRINT && is_int(p->print.value, 1));
 
-    ast_free(l); /* frees b, i, id recursively */
+    ast_free(l);
     ast_free(p);
 }
 
 static void test_ast_free_null(void)
 {
-    ast_free(NULL); /* must be a no-op */
+    ast_free(NULL);
     ASSERT(1);
 }
 
@@ -98,7 +144,6 @@ static void test_ast_program_push_growth(void)
     ASSERT(program->program.count == 0);
     ASSERT(program->program.statements == NULL);
 
-    /* Crosses several capacity doublings (8 -> 16 -> 32 -> 64). */
     for (long i = 0; i < 50; i++)
     {
         ast_node_t* n = ast_integer((source_span_t){0, 0}, i);
@@ -114,8 +159,6 @@ static void test_ast_program_push_growth(void)
 
     ast_free(program);
 }
-
-/* ---- parsing: valid programs ------------------------------------------- */
 
 static void test_empty_program(void)
 {
@@ -141,7 +184,6 @@ static void test_let_statement(void)
     ASSERT(s->kind == AST_LET);
     ASSERT(s->let.name.start == 4 && s->let.name.end == 5);
     ASSERT(is_int(s->let.value, 5));
-    /* Span covers the whole statement: `let` keyword through semicolon. */
     ASSERT(s->span.start == 0 && s->span.end == strlen(src));
 
     ast_free(p);
@@ -149,15 +191,14 @@ static void test_let_statement(void)
 
 static void test_let_span_with_leading_text(void)
 {
-    /* The span must start at the `let` keyword, not at the variable name. */
     const char* src = "  // c\n  let   foo = 1 + 2 ;";
     ast_node_t* p   = parse_ok(src);
 
     ASSERT(p && p->program.count == 1);
     ast_node_t* s = p->program.statements[0];
     ASSERT(s->kind == AST_LET);
-    ASSERT(s->span.start == 9);                /* 'l' of let */
-    ASSERT(s->span.end == strlen(src));        /* after ';' */
+    ASSERT(s->span.start == 9);
+    ASSERT(s->span.end == strlen(src));
     ASSERT(s->let.name.start == 15 && s->let.name.end == 18);
 
     ast_free(p);
@@ -205,7 +246,6 @@ static void test_multiple_statements(void)
 
 static void test_many_statements(void)
 {
-    /* Exceed the initial program capacity through the real parser. */
     char   buf[2048];
     size_t len = 0;
     for (int i = 0; i < 40; i++)
@@ -232,7 +272,6 @@ static void test_identifier_expression(void)
 
 static void test_precedence(void)
 {
-    /* 1 + 2 * 3  ==>  1 + (2 * 3) */
     ast_node_t* p = parse_ok("print(1 + 2 * 3);");
     ast_node_t* e = expr_of(p);
     ASSERT(is_bin(e, BIN_ADD));
@@ -242,7 +281,6 @@ static void test_precedence(void)
     ASSERT(is_int(e->binary.right->binary.right, 3));
     ast_free(p);
 
-    /* 1 * 2 + 3  ==>  (1 * 2) + 3 */
     p = parse_ok("print(1 * 2 + 3);");
     e = expr_of(p);
     ASSERT(is_bin(e, BIN_ADD));
@@ -253,7 +291,6 @@ static void test_precedence(void)
 
 static void test_left_associativity(void)
 {
-    /* 10 - 3 - 2  ==>  (10 - 3) - 2 */
     ast_node_t* p = parse_ok("print(10 - 3 - 2);");
     ast_node_t* e = expr_of(p);
     ASSERT(is_bin(e, BIN_SUB));
@@ -263,7 +300,6 @@ static void test_left_associativity(void)
     ASSERT(is_int(e->binary.left->binary.right, 3));
     ast_free(p);
 
-    /* 8 / 4 / 2  ==>  (8 / 4) / 2 */
     p = parse_ok("print(8 / 4 / 2);");
     e = expr_of(p);
     ASSERT(is_bin(e, BIN_DIV));
@@ -300,7 +336,6 @@ static void test_all_operators(void)
 
 static void test_parentheses(void)
 {
-    /* (1 + 2) * 3 */
     ast_node_t* p = parse_ok("print((1 + 2) * 3);");
     ast_node_t* e = expr_of(p);
     ASSERT(is_bin(e, BIN_MUL));
@@ -308,12 +343,10 @@ static void test_parentheses(void)
     ASSERT(is_int(e->binary.right, 3));
     ast_free(p);
 
-    /* Redundant and nested parens. */
     p = parse_ok("print(((((4)))));");
     ASSERT(is_int(expr_of(p), 4));
     ast_free(p);
 
-    /* 1 - (2 - 3) keeps the right-nested shape. */
     p = parse_ok("print(1 - (2 - 3));");
     e = expr_of(p);
     ASSERT(is_bin(e, BIN_SUB));
@@ -331,7 +364,8 @@ static void test_binary_spans(void)
     ASSERT(is_bin(e, BIN_ADD));
     ASSERT(e->span.start == 6 && e->span.end == 14);
     ASSERT(e->binary.left->span.start == 6 && e->binary.left->span.end == 8);
-    ASSERT(e->binary.right->span.start == 11 && e->binary.right->span.end == 14);
+    ASSERT(e->binary.right->span.start == 11 &&
+           e->binary.right->span.end == 14);
 
     ast_free(p);
 }
@@ -363,17 +397,13 @@ static void test_comments_in_program(void)
 
 static void test_keywords_not_identifiers(void)
 {
-    /* `let` / `print` are keywords and can't be used as variable names. */
     expect_fail("let let = 1;");
     expect_fail("let print = 1;");
     expect_fail("print(let);");
 }
 
-/* ---- parsing: invalid programs (also exercise error-path frees) -------- */
-
 static void test_syntax_errors(void)
 {
-    /* Statement level. */
     expect_fail("1;");
     expect_fail("x = 1;");
     expect_fail(";");
@@ -383,17 +413,16 @@ static void test_syntax_errors(void)
     expect_fail("let x = ;");
     expect_fail("let = 1;");
     expect_fail("let 1 = 2;");
-    expect_fail("let x = 1");   /* missing semicolon */
-    expect_fail("let x 1;");    /* missing '=' */
+    expect_fail("let x = 1");
+    expect_fail("let x 1;");
     expect_fail("print");
     expect_fail("print(");
     expect_fail("print()");
     expect_fail("print();");
-    expect_fail("print(1)");    /* missing semicolon */
-    expect_fail("print(1;");    /* missing ')' */
-    expect_fail("print 1;");    /* missing '(' */
+    expect_fail("print(1)");
+    expect_fail("print(1;");
+    expect_fail("print 1;");
 
-    /* Expression level. */
     expect_fail("print(1 +);");
     expect_fail("print(+ 1);");
     expect_fail("print(1 + * 2);");
@@ -407,11 +436,9 @@ static void test_syntax_errors(void)
     expect_fail("let x = (1 + ;");
     expect_fail("let x = (1 + 2;");
 
-    /* No unary minus in this grammar. */
     expect_fail("print(-1);");
     expect_fail("let x = -1;");
 
-    /* Lexer errors surface as parse errors. */
     expect_fail("let x = 1 @ 2;");
     expect_fail("@");
     expect_fail("print(1) # comment-ish;");
@@ -419,23 +446,19 @@ static void test_syntax_errors(void)
 
 static void test_partial_failure_frees_earlier_statements(void)
 {
-    /* Good statements followed by a bad one: the program built so far must be
-     * released without leaks (checked under ASan/valgrind). */
     expect_fail("let a = 1; let b = 2; print(a + b); let = ;");
     expect_fail("let a = (1 + 2) * 3; print(a +");
 }
 
 static void test_integer_literal_errors(void)
 {
-    /* One past LONG_MAX on 64-bit. */
     expect_fail("print(9223372036854775808);");
     expect_fail("print(99999999999999999999999999);");
 
-    /* Longer than the parser's 64-byte buffer. */
     char big[128];
     memset(big, '1', sizeof(big));
     memcpy(big, "print(", 6);
-    size_t n = 100;
+    size_t n   = 100;
     big[n]     = ')';
     big[n + 1] = ';';
     big[n + 2] = '\0';
@@ -444,7 +467,6 @@ static void test_integer_literal_errors(void)
 
 static void test_deep_nesting(void)
 {
-    /* Moderately deep parens and long chains should work. */
     char   buf[1024];
     size_t len = 0;
 
@@ -467,9 +489,9 @@ static void test_deep_nesting(void)
         len += (size_t)snprintf(buf + len, sizeof(buf) - len, " + 1");
     snprintf(buf + len, sizeof(buf) - len, ");");
 
-    p = parse_ok(buf);
-    ast_node_t* e = expr_of(p);
-    int depth = 0;
+    p                 = parse_ok(buf);
+    ast_node_t* e     = expr_of(p);
+    int         depth = 0;
     while (is_bin(e, BIN_ADD))
     {
         depth++;
@@ -479,9 +501,173 @@ static void test_deep_nesting(void)
     ast_free(p);
 }
 
+static void test_valid_parse_has_no_error(void)
+{
+    parser_t    parser;
+    const char* text = "let x = 1;";
+    parser_init(&parser, (source_t){.data = text, .length = strlen(text)});
+
+    ast_node_t* p = parser_parse(&parser);
+    ASSERT(p != NULL);
+    ASSERT(parser_error(&parser) == NULL);
+    ast_free(p);
+}
+
+static void test_diagnostic_messages(void)
+{
+    expect_diag("x = 1;",
+                "expected a statement ('let' or 'print'), found identifier 'x'",
+                0,
+                1);
+    expect_diag("1;",
+                "expected a statement ('let' or 'print'), found number '1'",
+                0,
+                1);
+    expect_diag("let = 1;",
+                "expected a variable name after 'let', found '='",
+                4,
+                5);
+    expect_diag("let let = 1;",
+                "expected a variable name after 'let', found 'let'",
+                4,
+                7);
+    expect_diag("let x 1;",
+                "expected '=' after the variable name, found number '1'",
+                6,
+                7);
+    expect_diag("let x = ;", "expected an expression, found ';'", 8, 9);
+    expect_diag("print 1;",
+                "expected '(' after 'print', found number '1'",
+                6,
+                7);
+
+    expect_diag("let x = 1",
+                "expected ';' after the let statement, found end of input",
+                9,
+                9);
+    expect_diag("let x = 1;\nlet y = 2\n\n",
+                "expected ';' after the let statement, found end of input",
+                20,
+                20);
+    expect_diag("print(1",
+                "expected ')' after the expression, found end of input",
+                7,
+                7);
+    expect_diag("let x =\n",
+                "expected an expression, found end of input",
+                7,
+                7);
+    expect_diag("let",
+                "expected a variable name after 'let', found end of input",
+                3,
+                3);
+
+    expect_diag("let x = 1 print(x);",
+                "expected ';' after the let statement, found 'print'",
+                10,
+                15);
+    expect_diag("print(1) 2;",
+                "expected ';' after the print statement, found number '2'",
+                9,
+                10);
+
+    expect_diag("print((1);",
+                "expected ')' after the expression, found ';'",
+                9,
+                10);
+    expect_diag("print(1 + (2;",
+                "expected ')' to close the '(', found ';'",
+                12,
+                13);
+    expect_diag("print(());", "expected an expression, found ')'", 7, 8);
+
+    expect_diag("print(1 + * 2);", "expected an expression, found '*'", 10, 11);
+    expect_diag("print(-1);", "expected an expression, found '-'", 6, 7);
+    expect_diag("print(1 2);",
+                "expected ')' after the expression, found number '2'",
+                8,
+                9);
+
+    expect_diag("let a = 1;\nlet b = ;",
+                "expected an expression, found ';'",
+                19,
+                20);
+}
+
+static void test_invalid_character_diagnostics(void)
+{
+    expect_diag("let x = 1 @ 2;", "invalid character '@'", 10, 11);
+    expect_diag("@", "invalid character '@'", 0, 1);
+    expect_diag("let # = 1;", "invalid character '#'", 4, 5);
+    expect_diag("print(1 $);", "invalid character '$'", 8, 9);
+    expect_diag("print(\x01);", "invalid byte 0x01", 6, 7);
+}
+
+static void test_integer_diagnostics(void)
+{
+    expect_diag("print(9223372036854775808);",
+                "integer literal is too large (maximum is 9223372036854775807)",
+                6,
+                25);
+
+    char big[160];
+    memcpy(big, "print(", 6);
+    memset(big + 6, '9', 80);
+    memcpy(big + 86, ");", 3);
+    expect_diag(big,
+                "integer literal is too large (maximum is 9223372036854775807)",
+                6,
+                86);
+}
+
+static void test_long_names_are_clipped_in_messages(void)
+{
+    char text[64];
+    memset(text, 'a', 40);
+    text[40] = ';';
+    text[41] = '\0';
+
+    parser_t parser;
+    parser_init(&parser, (source_t){.data = text, .length = strlen(text)});
+    ASSERT(parser_parse(&parser) == NULL);
+
+    const diagnostic_t* d = parser_error(&parser);
+    ASSERT(d != NULL);
+    if (d)
+    {
+        ASSERT(strstr(d->message, "identifier 'aaaaaaaaaaaaaaaaaaaaaaaa...'") !=
+               NULL);
+        ASSERT(d->span.start == 0 && d->span.end == 40);
+    }
+}
+
+static void test_first_error_wins(void)
+{
+    expect_diag("let = 1; let = 2;",
+                "expected a variable name after 'let', found '='",
+                4,
+                5);
+}
+
+static void test_error_state_resets_on_init(void)
+{
+    parser_t    parser;
+    const char* bad  = "let;";
+    const char* good = "let x = 1;";
+
+    parser_init(&parser, (source_t){.data = bad, .length = strlen(bad)});
+    ASSERT(parser_parse(&parser) == NULL);
+    ASSERT(parser_error(&parser) != NULL);
+
+    parser_init(&parser, (source_t){.data = good, .length = strlen(good)});
+    ast_node_t* p = parser_parse(&parser);
+    ASSERT(p != NULL);
+    ASSERT(parser_error(&parser) == NULL);
+    ast_free(p);
+}
+
 static void test_parser_respects_source_length(void)
 {
-    /* Only the first 10 bytes ("let x = 1;") are part of the source. */
     const char text[] = "let x = 1;garbage";
     parser_t   parser;
     parser_init(&parser, (source_t){.data = text, .length = 10});
@@ -514,6 +700,14 @@ int main(void)
     test_integer_limits();
     test_comments_in_program();
     test_keywords_not_identifiers();
+
+    test_valid_parse_has_no_error();
+    test_diagnostic_messages();
+    test_invalid_character_diagnostics();
+    test_integer_diagnostics();
+    test_long_names_are_clipped_in_messages();
+    test_first_error_wins();
+    test_error_state_resets_on_init();
 
     test_syntax_errors();
     test_partial_failure_frees_earlier_statements();

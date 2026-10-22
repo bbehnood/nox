@@ -1,9 +1,13 @@
 #include "parser.h"
 
 #include "ast.h"
+#include "diagnostic.h"
 #include "lexer.h"
 
+#include <ctype.h>
 #include <errno.h>
+#include <limits.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -32,11 +36,153 @@ static bool parser_match(parser_t* parser, token_type_t type)
     return true;
 }
 
-static bool parser_expect(parser_t* parser, token_type_t type)
+#if defined(__GNUC__) || defined(__clang__)
+#define PRINTF_LIKE(fmt, args) __attribute__((format(printf, fmt, args)))
+#else
+#define PRINTF_LIKE(fmt, args)
+#endif
+
+#define DESCRIPTION_MAX    (96)
+#define TOKEN_TEXT_PREVIEW (24)
+
+static void parser_report(parser_t*     parser,
+                          source_span_t span,
+                          const char*   format,
+                          ...) PRINTF_LIKE(3, 4);
+
+static void parser_report(parser_t*     parser,
+                          source_span_t span,
+                          const char*   format,
+                          ...)
+{
+    if (parser->failed)
+        return;
+
+    parser->failed          = true;
+    parser->diagnostic.span = span;
+
+    va_list args;
+    va_start(args, format);
+    vsnprintf(parser->diagnostic.message,
+              sizeof(parser->diagnostic.message),
+              format,
+              args);
+    va_end(args);
+}
+
+static const char* token_symbol(token_type_t type)
+{
+    switch (type)
+    {
+    case TOKEN_LET:
+        return "'let'";
+    case TOKEN_PRINT:
+        return "'print'";
+    case TOKEN_PLUS:
+        return "'+'";
+    case TOKEN_MINUS:
+        return "'-'";
+    case TOKEN_STAR:
+        return "'*'";
+    case TOKEN_SLASH:
+        return "'/'";
+    case TOKEN_EQUALS:
+        return "'='";
+    case TOKEN_LPAREN:
+        return "'('";
+    case TOKEN_RPAREN:
+        return "')'";
+    case TOKEN_SEMICOLON:
+        return "';'";
+    case TOKEN_EOF:
+    case TOKEN_ERROR:
+    case TOKEN_IDENTIFIER:
+    case TOKEN_INTEGER:
+        break;
+    }
+
+    return "token";
+}
+
+static void describe_token(const parser_t* parser,
+                           token_t         token,
+                           char*           out,
+                           size_t          size)
+{
+    size_t      length = token.span.end - token.span.start;
+    const char* text   = parser->source.data + token.span.start;
+
+    switch (token.type)
+    {
+    case TOKEN_EOF:
+        snprintf(out, size, "end of input");
+        return;
+
+    case TOKEN_ERROR:
+    {
+        unsigned char c = (unsigned char)text[0];
+
+        if (isprint(c))
+            snprintf(out, size, "invalid character '%c'", c);
+        else
+            snprintf(out, size, "invalid byte 0x%02X", (unsigned)c);
+        return;
+    }
+
+    case TOKEN_IDENTIFIER:
+    case TOKEN_INTEGER:
+    {
+        const char* kind =
+            token.type == TOKEN_IDENTIFIER ? "identifier" : "number";
+        bool clipped = length > TOKEN_TEXT_PREVIEW;
+        int  shown   = (int)(clipped ? TOKEN_TEXT_PREVIEW : length);
+
+        snprintf(out,
+                 size,
+                 "%s '%.*s%s'",
+                 kind,
+                 shown,
+                 text,
+                 clipped ? "..." : "");
+        return;
+    }
+
+    default:
+        snprintf(out, size, "%s", token_symbol(token.type));
+        return;
+    }
+}
+
+static void parser_fail_expected(parser_t* parser, const char* expected)
+{
+    token_t       token = parser->current;
+    source_span_t span  = token.span;
+    char          found[DESCRIPTION_MAX];
+
+    describe_token(parser, token, found, sizeof(found));
+
+    if (token.type == TOKEN_ERROR)
+    {
+        parser_report(parser, span, "%s", found);
+        return;
+    }
+
+    if (token.type == TOKEN_EOF)
+    {
+        span.start = parser->previous.span.end;
+        span.end   = span.start;
+    }
+
+    parser_report(parser, span, "expected %s, found %s", expected, found);
+}
+
+static bool parser_expect(parser_t*    parser,
+                          token_type_t type,
+                          const char*  expected)
 {
     if (!parser_check(parser, type))
     {
-        fprintf(stderr, "parser error: unexpected token");
+        parser_fail_expected(parser, expected);
         return false;
     }
 
@@ -56,7 +202,10 @@ static ast_node_t* parser_parse_primary(parser_t* parser)
 
         if (length >= sizeof(buffer))
         {
-            fprintf(stderr, "parser error: integer literal too long\n");
+            parser_report(parser,
+                          token.span,
+                          "integer literal is too large (maximum is %ld)",
+                          LONG_MAX);
             return NULL;
         }
 
@@ -71,13 +220,16 @@ static ast_node_t* parser_parse_primary(parser_t* parser)
 
         if (errno == ERANGE)
         {
-            fprintf(stderr, "parser error: integer literal out of range\n");
+            parser_report(parser,
+                          token.span,
+                          "integer literal is too large (maximum is %ld)",
+                          LONG_MAX);
             return NULL;
         }
 
         if (*end != '\0')
         {
-            fprintf(stderr, "parser error: invalid integer\n");
+            parser_report(parser, token.span, "invalid integer literal");
             return NULL;
         }
 
@@ -96,7 +248,7 @@ static ast_node_t* parser_parse_primary(parser_t* parser)
         if (!expression)
             return NULL;
 
-        if (!parser_expect(parser, TOKEN_RPAREN))
+        if (!parser_expect(parser, TOKEN_RPAREN, "')' to close the '('"))
         {
             ast_free(expression);
             return NULL;
@@ -105,7 +257,7 @@ static ast_node_t* parser_parse_primary(parser_t* parser)
         return expression;
     }
 
-    fprintf(stderr, "parser error: expected expression");
+    parser_fail_expected(parser, "an expression");
 
     return NULL;
 }
@@ -199,7 +351,7 @@ static ast_node_t* parser_parse_let(parser_t* parser)
 
     if (!parser_check(parser, TOKEN_IDENTIFIER))
     {
-        fprintf(stderr, "parser error: expected identifier after 'let'\n");
+        parser_fail_expected(parser, "a variable name after 'let'");
         return NULL;
     }
 
@@ -207,14 +359,14 @@ static ast_node_t* parser_parse_let(parser_t* parser)
 
     parser_advance(parser);
 
-    if (!parser_expect(parser, TOKEN_EQUALS))
+    if (!parser_expect(parser, TOKEN_EQUALS, "'=' after the variable name"))
         return NULL;
 
     ast_node_t* value = parser_parse_expression(parser);
     if (!value)
         return NULL;
 
-    if (!parser_expect(parser, TOKEN_SEMICOLON))
+    if (!parser_expect(parser, TOKEN_SEMICOLON, "';' after the let statement"))
     {
         ast_free(value);
         return NULL;
@@ -232,20 +384,22 @@ static ast_node_t* parser_parse_print(parser_t* parser)
 {
     size_t start = parser->previous.span.start;
 
-    if (!parser_expect(parser, TOKEN_LPAREN))
+    if (!parser_expect(parser, TOKEN_LPAREN, "'(' after 'print'"))
         return NULL;
 
     ast_node_t* value = parser_parse_expression(parser);
     if (!value)
         return NULL;
 
-    if (!parser_expect(parser, TOKEN_RPAREN))
+    if (!parser_expect(parser, TOKEN_RPAREN, "')' after the expression"))
     {
         ast_free(value);
         return NULL;
     }
 
-    if (!parser_expect(parser, TOKEN_SEMICOLON))
+    if (!parser_expect(parser,
+                       TOKEN_SEMICOLON,
+                       "';' after the print statement"))
     {
         ast_free(value);
         return NULL;
@@ -271,7 +425,7 @@ static ast_node_t* parser_parse_statement(parser_t* parser)
         return parser_parse_print(parser);
     }
 
-    fprintf(stderr, "parser error: expected statement\n");
+    parser_fail_expected(parser, "a statement ('let' or 'print')");
 
     return NULL;
 }
@@ -279,6 +433,10 @@ static ast_node_t* parser_parse_statement(parser_t* parser)
 void parser_init(parser_t* parser, source_t source)
 {
     parser->source = source;
+    parser->failed = false;
+
+    parser->diagnostic.span       = (source_span_t){.start = 0, .end = 0};
+    parser->diagnostic.message[0] = '\0';
 
     lexer_init(&parser->lexer, source);
 
@@ -298,13 +456,18 @@ ast_node_t* parser_parse(parser_t* parser)
 {
     ast_node_t* program = ast_program();
     if (!program)
+    {
+        parser_report(parser, parser->current.span, "out of memory");
         return NULL;
+    }
 
     while (!parser_check(parser, TOKEN_EOF))
     {
         ast_node_t* statement = parser_parse_statement(parser);
         if (!statement || !ast_program_push(program, statement))
         {
+            parser_report(parser, parser->current.span, "out of memory");
+
             ast_free(statement);
             ast_free(program);
             return NULL;
@@ -315,4 +478,9 @@ ast_node_t* parser_parse(parser_t* parser)
     program->span.end   = parser->source.length;
 
     return program;
+}
+
+const diagnostic_t* parser_error(const parser_t* parser)
+{
+    return parser->failed ? &parser->diagnostic : NULL;
 }

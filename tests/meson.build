@@ -1,6 +1,7 @@
 tests = {
   'lexer': 'lexer_test.c',
   'parser': 'parser_test.c',
+  'diagnostic': 'diagnostic_test.c',
 }
 
 foreach name, source : tests

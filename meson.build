@@ -33,6 +33,7 @@ nox_lib = static_library(
     'src/lexer.c',
     'src/ast.c',
     'src/parser.c',
+    'src/diagnostic.c',
   ),
   include_directories: include_directories('src'),
 )

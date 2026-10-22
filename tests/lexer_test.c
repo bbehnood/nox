@@ -6,8 +6,6 @@
 
 #define SRC(s) ((source_t){.data = (s), .length = strlen(s)})
 
-/* Lex `text` and check that it produces exactly `count` tokens of the given
- * types, followed by EOF. */
 static void expect_types(const char*         text,
                          const token_type_t* types,
                          size_t              count)
@@ -84,7 +82,6 @@ static void test_keywords_and_identifiers(void)
     expect_single("let", TOKEN_LET);
     expect_single("print", TOKEN_PRINT);
 
-    /* Near-misses must not be keywords. */
     expect_single("lets", TOKEN_IDENTIFIER);
     expect_single("le", TOKEN_IDENTIFIER);
     expect_single("Let", TOKEN_IDENTIFIER);
@@ -124,7 +121,6 @@ static void test_integers(void)
 
 static void test_digits_then_letters_split(void)
 {
-    /* "12abc" is an integer immediately followed by an identifier. */
     token_type_t want[] = {TOKEN_INTEGER, TOKEN_IDENTIFIER};
     expect_types("12abc", want, 2);
 }
@@ -191,10 +187,8 @@ static void test_comments(void)
 {
     lexer_t lexer;
 
-    /* Comment only. */
     expect_types("// nothing here", NULL, 0);
 
-    /* Comment at end of line, then more code. */
     lexer_init(&lexer, SRC("1 // one\n2"));
     token_t t = lexer_next(&lexer);
     ASSERT(t.type == TOKEN_INTEGER && t.span.start == 0);
@@ -202,15 +196,12 @@ static void test_comments(void)
     ASSERT(t.type == TOKEN_INTEGER && t.span.start == 9 && t.span.end == 10);
     ASSERT(lexer_next(&lexer).type == TOKEN_EOF);
 
-    /* Consecutive comments. */
     token_type_t want[] = {TOKEN_IDENTIFIER};
     expect_types("// a\n// b\nx", want, 1);
 
-    /* "///" and "// // x" are still just comments. */
     expect_types("/// triple", NULL, 0);
     expect_types("// // x", NULL, 0);
 
-    /* Comment terminated by \r\n. */
     expect_types("// c\r\nx", want, 1);
 }
 
@@ -219,7 +210,6 @@ static void test_single_slash_is_not_comment(void)
     token_type_t want[] = {TOKEN_INTEGER, TOKEN_SLASH, TOKEN_INTEGER};
     expect_types("4 / 2", want, 3);
 
-    /* Slash at the very end of input (exercises lexer_peek_next bounds). */
     token_type_t end[] = {TOKEN_INTEGER, TOKEN_SLASH};
     expect_types("4 /", end, 2);
 
@@ -252,8 +242,6 @@ static void test_invalid_characters(void)
 
 static void test_high_bytes_are_errors(void)
 {
-    /* Bytes >= 0x80 (e.g. UTF-8) must not be classified as identifiers and
-     * must not trip isalpha() with a negative char. */
     const char text[] = "\xC3\xA9";
     lexer_t    lexer;
     lexer_init(&lexer, (source_t){.data = text, .length = 2});
@@ -277,7 +265,6 @@ static void test_recovers_after_error(void)
 
 static void test_respects_length_not_nul(void)
 {
-    /* The lexer must honour source.length, not stop at NUL or run past it. */
     const char text[] = "ab cd";
 
     lexer_t lexer;
@@ -288,7 +275,6 @@ static void test_respects_length_not_nul(void)
     ASSERT(t.span.start == 0 && t.span.end == 2);
     ASSERT(lexer_next(&lexer).type == TOKEN_EOF);
 
-    /* Embedded NUL is an error token, not the end of input. */
     const char nul[] = {'1', '\0', '2'};
     lexer_init(&lexer, (source_t){.data = nul, .length = 3});
     ASSERT(lexer_next(&lexer).type == TOKEN_INTEGER);
