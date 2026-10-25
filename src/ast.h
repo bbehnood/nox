@@ -38,6 +38,7 @@ typedef struct ast_node
 {
     ast_kind_t    kind;
     source_span_t span;
+    size_t        slot;
 
     union
     {

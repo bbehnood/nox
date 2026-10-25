@@ -1,5 +1,6 @@
 #include "ast.h"
 #include "parser.h"
+#include "sema.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -88,6 +89,19 @@ int main(int argc, char** argv)
             fprintf(stderr, "%s: error: parsing failed\n", path);
 
         status = 1;
+    }
+    else
+    {
+        sema_t sema;
+        sema_init(&sema, source);
+
+        if (!sema_check(&sema, program))
+        {
+            diagnostic_print(stderr, path, source, sema_error(&sema));
+            status = 1;
+        }
+
+        sema_free(&sema);
     }
 
     ast_free(program);
