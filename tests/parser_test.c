@@ -104,6 +104,11 @@ static bool is_bin(const ast_node_t* n, binary_op_t op)
     return n && n->kind == AST_BINARY && n->binary.op == op;
 }
 
+static bool is_neg(const ast_node_t* n)
+{
+    return n && n->kind == AST_UNARY && n->unary.op == UN_NEG;
+}
+
 static void test_ast_constructors(void)
 {
     source_span_t sp = {.start = 3, .end = 5};
@@ -126,6 +131,12 @@ static void test_ast_constructors(void)
 
     ast_node_t* p = ast_print(sp, ast_integer(sp, 1));
     ASSERT(p && p->kind == AST_PRINT && is_int(p->print.value, 1));
+
+    ast_node_t* u = ast_unary(sp, UN_NEG, ast_integer(sp, 4));
+    ASSERT(u && u->kind == AST_UNARY && u->unary.op == UN_NEG);
+    ASSERT(is_int(u->unary.operand, 4));
+    ASSERT(u->span.start == 3 && u->span.end == 5);
+    ast_free(u);
 
     ast_free(l);
     ast_free(p);
@@ -370,6 +381,74 @@ static void test_binary_spans(void)
     ast_free(p);
 }
 
+static void test_unary_minus(void)
+{
+    const char* src = "print(-1);";
+    ast_node_t* p   = parse_ok(src);
+    ast_node_t* e   = expr_of(p);
+    ASSERT(is_neg(e));
+    ASSERT(is_int(e->unary.operand, 1));
+    ASSERT(e->span.start == 6 && e->span.end == 8);
+    ast_free(p);
+
+    p = parse_ok("let x = -5;");
+    ASSERT(is_neg(p->program.statements[0]->let.value));
+    ast_free(p);
+
+    p = parse_ok("print(-foo);");
+    e = expr_of(p);
+    ASSERT(is_neg(e));
+    ASSERT(e->unary.operand->kind == AST_IDENTIFIER);
+    ast_free(p);
+
+    p = parse_ok("print(-(1 + 2));");
+    e = expr_of(p);
+    ASSERT(is_neg(e));
+    ASSERT(is_bin(e->unary.operand, BIN_ADD));
+    ast_free(p);
+}
+
+static void test_unary_precedence(void)
+{
+    ast_node_t* p = parse_ok("print(-2 * 3);");
+    ast_node_t* e = expr_of(p);
+    ASSERT(is_bin(e, BIN_MUL));
+    ASSERT(is_neg(e->binary.left));
+    ASSERT(is_int(e->binary.left->unary.operand, 2));
+    ASSERT(is_int(e->binary.right, 3));
+    ast_free(p);
+
+    p = parse_ok("print(2 - -3);");
+    e = expr_of(p);
+    ASSERT(is_bin(e, BIN_SUB));
+    ASSERT(is_int(e->binary.left, 2));
+    ASSERT(is_neg(e->binary.right));
+    ASSERT(is_int(e->binary.right->unary.operand, 3));
+    ast_free(p);
+
+    p = parse_ok("print(2 * -3);");
+    e = expr_of(p);
+    ASSERT(is_bin(e, BIN_MUL));
+    ASSERT(is_neg(e->binary.right));
+    ast_free(p);
+}
+
+static void test_unary_nested(void)
+{
+    ast_node_t* p = parse_ok("print(- -3);");
+    ast_node_t* e = expr_of(p);
+    ASSERT(is_neg(e));
+    ASSERT(is_neg(e->unary.operand));
+    ASSERT(is_int(e->unary.operand->unary.operand, 3));
+    ASSERT(e->span.start == 6 && e->span.end == 10);
+    ast_free(p);
+
+    p = parse_ok("print(--3);");
+    e = expr_of(p);
+    ASSERT(is_neg(e) && is_neg(e->unary.operand));
+    ast_free(p);
+}
+
 static void test_integer_limits(void)
 {
     char src[64];
@@ -436,8 +515,11 @@ static void test_syntax_errors(void)
     expect_fail("let x = (1 + ;");
     expect_fail("let x = (1 + 2;");
 
-    expect_fail("print(-1);");
-    expect_fail("let x = -1;");
+    expect_fail("print(-);");
+    expect_fail("let x = -;");
+    expect_fail("let x = - * 2;");
+    expect_fail("print(1 - -);");
+    expect_fail("print(-");
 
     expect_fail("let x = 1 @ 2;");
     expect_fail("@");
@@ -582,7 +664,7 @@ static void test_diagnostic_messages(void)
     expect_diag("print(());", "expected an expression, found ')'", 7, 8);
 
     expect_diag("print(1 + * 2);", "expected an expression, found '*'", 10, 11);
-    expect_diag("print(-1);", "expected an expression, found '-'", 6, 7);
+    expect_diag("print(-);", "expected an expression, found ')'", 7, 8);
     expect_diag("print(1 2);",
                 "expected ')' after the expression, found number '2'",
                 8,
@@ -697,6 +779,9 @@ int main(void)
     test_all_operators();
     test_parentheses();
     test_binary_spans();
+    test_unary_minus();
+    test_unary_precedence();
+    test_unary_nested();
     test_integer_limits();
     test_comments_in_program();
     test_keywords_not_identifiers();

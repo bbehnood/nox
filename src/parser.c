@@ -262,9 +262,26 @@ static ast_node_t* parser_parse_primary(parser_t* parser)
     return NULL;
 }
 
+static ast_node_t* parser_parse_unary(parser_t* parser)
+{
+    if (parser_match(parser, TOKEN_MINUS))
+    {
+        size_t start = parser->previous.span.start;
+
+        ast_node_t* operand = parser_parse_unary(parser);
+        if (!operand)
+            return NULL;
+
+        source_span_t span = {.start = start, .end = operand->span.end};
+        return ast_unary(span, UN_NEG, operand);
+    }
+
+    return parser_parse_primary(parser);
+}
+
 static ast_node_t* parser_parse_multiplicative(parser_t* parser)
 {
-    ast_node_t* left = parser_parse_primary(parser);
+    ast_node_t* left = parser_parse_unary(parser);
     if (!left)
         return NULL;
 
@@ -279,7 +296,7 @@ static ast_node_t* parser_parse_multiplicative(parser_t* parser)
         else
             break;
 
-        ast_node_t* right = parser_parse_primary(parser);
+        ast_node_t* right = parser_parse_unary(parser);
         if (!right)
         {
             ast_free(left);
