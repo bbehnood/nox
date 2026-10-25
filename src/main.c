@@ -1,9 +1,13 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include "ast.h"
+#include "codegen.h"
 #include "parser.h"
 #include "sema.h"
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static char* read_file(const char* path, size_t* length)
 {
@@ -52,15 +56,153 @@ static char* read_file(const char* path, size_t* length)
     return data;
 }
 
+typedef struct options
+{
+    const char* input;
+    const char* output;
+    bool        emit_asm;
+} options_t;
+
+static void usage(const char* program)
+{
+    fprintf(stderr,
+            "usage: %s [-S] [-o <output>] <file>\n"
+            "  -o <output>  write the executable (or assembly with -S) here\n"
+            "  -S           emit assembly instead of an executable\n",
+            program);
+}
+
+static bool parse_args(int argc, char** argv, options_t* options)
+{
+    *options = (options_t){.input = NULL, .output = NULL, .emit_asm = false};
+
+    for (int i = 1; i < argc; i++)
+    {
+        if (strcmp(argv[i], "-S") == 0)
+        {
+            options->emit_asm = true;
+        }
+        else if (strcmp(argv[i], "-o") == 0)
+        {
+            if (++i >= argc)
+                return false;
+
+            options->output = argv[i];
+        }
+        else if (argv[i][0] == '-' && argv[i][1] != '\0')
+        {
+            return false;
+        }
+        else if (options->input)
+        {
+            return false;
+        }
+        else
+        {
+            options->input = argv[i];
+        }
+    }
+
+    return options->input != NULL;
+}
+
+static char* shell_quote(const char* text)
+{
+    size_t length = 2;
+
+    for (const char* c = text; *c; c++)
+        length += *c == '\'' ? 4 : 1;
+
+    char* quoted = malloc(length + 1);
+    if (!quoted)
+        return NULL;
+
+    char* out = quoted;
+    *out++    = '\'';
+
+    for (const char* c = text; *c; c++)
+    {
+        if (*c == '\'')
+        {
+            memcpy(out, "'\\''", 4);
+            out += 4;
+        }
+        else
+        {
+            *out++ = *c;
+        }
+    }
+
+    *out++ = '\'';
+    *out   = '\0';
+
+    return quoted;
+}
+
+static bool emit_executable(const ast_node_t* program,
+                            size_t            slot_count,
+                            const char*       output)
+{
+    const char* cc = getenv("CC");
+    if (!cc || !*cc)
+        cc = "cc";
+
+    char* quoted = shell_quote(output);
+    if (!quoted)
+        return false;
+
+    size_t size    = strlen(cc) + strlen(quoted) + 32;
+    char*  command = malloc(size);
+
+    if (!command)
+    {
+        free(quoted);
+        return false;
+    }
+
+    snprintf(command, size, "%s -x assembler -o %s -", cc, quoted);
+
+    FILE* pipe = popen(command, "w");
+
+    free(command);
+    free(quoted);
+
+    if (!pipe)
+        return false;
+
+    bool emitted = codegen_emit(pipe, program, slot_count);
+    int  status  = pclose(pipe);
+
+    return emitted && status == 0;
+}
+
+static bool emit_assembly(const ast_node_t* program,
+                          size_t            slot_count,
+                          const char*       output)
+{
+    FILE* file = output ? fopen(output, "w") : stdout;
+    if (!file)
+        return false;
+
+    bool emitted = codegen_emit(file, program, slot_count);
+
+    if (output && fclose(file) != 0)
+        emitted = false;
+
+    return emitted;
+}
+
 int main(int argc, char** argv)
 {
-    if (argc != 2)
+    options_t options;
+
+    if (!parse_args(argc, argv, &options))
     {
-        fprintf(stderr, "usage: %s <file>\n", argc > 0 ? argv[0] : "nox");
+        usage(argc > 0 ? argv[0] : "nox");
         return 2;
     }
 
-    const char* path   = argv[1];
+    const char* path   = options.input;
     size_t      length = 0;
     char*       text   = read_file(path, &length);
 
@@ -99,6 +241,23 @@ int main(int argc, char** argv)
         {
             diagnostic_print(stderr, path, source, sema_error(&sema));
             status = 1;
+        }
+        else
+        {
+            bool ok = options.emit_asm
+                          ? emit_assembly(program,
+                                          sema.slot_count,
+                                          options.output)
+                          : emit_executable(program,
+                                            sema.slot_count,
+                                            options.output ? options.output
+                                                           : "a.out");
+
+            if (!ok)
+            {
+                fprintf(stderr, "%s: error: code generation failed\n", path);
+                status = 1;
+            }
         }
 
         sema_free(&sema);

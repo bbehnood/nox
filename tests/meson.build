@@ -13,3 +13,14 @@ foreach name, source : tests
   )
   test(name, exe)
 endforeach
+
+test(
+  'golden',
+  find_program('sh'),
+  args: [
+    files('run_golden.sh'),
+    nox_exe,
+    meson.current_source_dir() / 'golden',
+  ],
+  depends: nox_exe,
+)

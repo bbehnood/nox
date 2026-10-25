@@ -34,6 +34,7 @@ nox_lib = static_library(
     'src/ast.c',
     'src/parser.c',
     'src/sema.c',
+    'src/codegen.c',
     'src/diagnostic.c',
   ),
   include_directories: include_directories('src'),
@@ -44,7 +45,7 @@ nox_dep = declare_dependency(
   include_directories: include_directories('src'),
 )
 
-executable(
+nox_exe = executable(
   'nox',
   'src/main.c',
   dependencies: nox_dep,
