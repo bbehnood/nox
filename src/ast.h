@@ -10,7 +10,9 @@ typedef enum ast_kind
 {
     AST_INTEGER,
     AST_IDENTIFIER,
+
     AST_BINARY,
+    AST_UNARY,
 
     AST_LET,
     AST_PRINT,
@@ -25,6 +27,11 @@ typedef enum binary_op
     BIN_MUL,
     BIN_DIV,
 } binary_op_t;
+
+typedef enum unary_op
+{
+    UN_NEG,
+} unary_op_t;
 
 typedef struct ast_node
 {
@@ -43,6 +50,12 @@ typedef struct ast_node
             struct ast_node* left;
             struct ast_node* right;
         } binary;
+
+        struct
+        {
+            unary_op_t       op;
+            struct ast_node* operand;
+        } unary;
 
         struct
         {
@@ -72,6 +85,8 @@ ast_node_t* ast_binary(source_span_t span,
                        binary_op_t   op,
                        ast_node_t*   left,
                        ast_node_t*   right);
+
+ast_node_t* ast_unary(source_span_t span, unary_op_t op, ast_node_t* operand);
 
 ast_node_t* ast_let(source_span_t span, source_span_t name, ast_node_t* value);
 

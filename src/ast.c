@@ -69,6 +69,22 @@ ast_node_t* ast_binary(source_span_t span,
     return node;
 }
 
+ast_node_t* ast_unary(source_span_t span, unary_op_t op, ast_node_t* operand)
+{
+    ast_node_t* node = ast_alloc(AST_UNARY);
+    if (!node)
+    {
+        ast_free(operand);
+        return NULL;
+    }
+
+    node->span          = span;
+    node->unary.op      = op;
+    node->unary.operand = operand;
+
+    return node;
+}
+
 ast_node_t* ast_let(source_span_t span, source_span_t name, ast_node_t* value)
 {
     ast_node_t* node = ast_alloc(AST_LET);
@@ -146,6 +162,10 @@ void ast_free(ast_node_t* node)
     case AST_BINARY:
         ast_free(node->binary.left);
         ast_free(node->binary.right);
+        break;
+
+    case AST_UNARY:
+        ast_free(node->unary.operand);
         break;
 
     case AST_LET:
