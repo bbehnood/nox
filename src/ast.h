@@ -5,6 +5,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 typedef enum ast_kind
 {
@@ -40,7 +41,7 @@ typedef struct ast_node
 
     union
     {
-        long integer;
+        int64_t integer;
 
         source_span_t identifier;
 
