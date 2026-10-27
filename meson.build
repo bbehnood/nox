@@ -13,7 +13,6 @@ project(
   ],
 )
 
-fs = import('fs')
 cc = meson.get_compiler('c')
 
 add_project_arguments(
