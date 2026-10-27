@@ -14,6 +14,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define DESCRIPTION_MAX    (96)
+#define TOKEN_TEXT_PREVIEW (24)
+
+#if defined(__GNUC__) || defined(__clang__)
+#define PRINTF_LIKE(fmt, args) __attribute__((format(printf, fmt, args)))
+#else
+#define PRINTF_LIKE(fmt, args)
+#endif
+
 static ast_node_t* parser_parse_expression(parser_t* parser);
 
 static void parser_advance(parser_t* parser)
@@ -35,15 +44,6 @@ static bool parser_match(parser_t* parser, token_type_t type)
     parser_advance(parser);
     return true;
 }
-
-#if defined(__GNUC__) || defined(__clang__)
-#define PRINTF_LIKE(fmt, args) __attribute__((format(printf, fmt, args)))
-#else
-#define PRINTF_LIKE(fmt, args)
-#endif
-
-#define DESCRIPTION_MAX    (96)
-#define TOKEN_TEXT_PREVIEW (24)
 
 static void parser_report(parser_t*     parser,
                           source_span_t span,
