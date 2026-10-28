@@ -6,6 +6,7 @@
 #include "lexer.h"
 
 #include <stdbool.h>
+#include <stddef.h>
 
 typedef struct parser
 {
@@ -17,6 +18,7 @@ typedef struct parser
     source_t source;
 
     bool         failed;
+    size_t       depth;
     diagnostic_t diagnostic;
 } parser_t;
 

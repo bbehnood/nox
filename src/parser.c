@@ -15,6 +15,7 @@
 #include <string.h>
 
 #define DESCRIPTION_MAX    (96)
+#define MAX_NESTING        (256)
 #define TOKEN_TEXT_PREVIEW (24)
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -190,6 +191,27 @@ static bool parser_expect(parser_t*    parser,
     return true;
 }
 
+static bool parser_enter(parser_t* parser)
+{
+    if (parser->depth >= MAX_NESTING)
+    {
+        parser_report(parser,
+                      parser->current.span,
+                      "expression is nested too deeply (limit is %d)",
+                      MAX_NESTING);
+
+        return false;
+    }
+
+    parser->depth++;
+    return true;
+}
+
+static void parser_leave(parser_t* parser)
+{
+    parser->depth--;
+}
+
 static ast_node_t* parser_parse_primary(parser_t* parser)
 {
     token_t token = parser->current;
@@ -243,7 +265,10 @@ static ast_node_t* parser_parse_primary(parser_t* parser)
 
     if (parser_match(parser, TOKEN_LPAREN))
     {
+        if (!parser_enter(parser))
+            return NULL;
         ast_node_t* expression = parser_parse_expression(parser);
+        parser_leave(parser);
 
         if (!expression)
             return NULL;
@@ -268,7 +293,11 @@ static ast_node_t* parser_parse_unary(parser_t* parser)
     {
         size_t start = parser->previous.span.start;
 
+        if (!parser_enter(parser))
+            return NULL;
         ast_node_t* operand = parser_parse_unary(parser);
+        parser_leave(parser);
+
         if (!operand)
             return NULL;
 
@@ -451,6 +480,7 @@ void parser_init(parser_t* parser, source_t source)
 {
     parser->source = source;
     parser->failed = false;
+    parser->depth  = 0;
 
     parser->diagnostic.span       = (source_span_t){.start = 0, .end = 0};
     parser->diagnostic.message[0] = '\0';
