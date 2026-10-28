@@ -16,6 +16,7 @@
 
 #define DESCRIPTION_MAX    (96)
 #define MAX_NESTING        (256)
+#define MAX_CHAIN          (4096)
 #define TOKEN_TEXT_PREVIEW (24)
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -314,6 +315,8 @@ static ast_node_t* parser_parse_multiplicative(parser_t* parser)
     if (!left)
         return NULL;
 
+    size_t chain = 0;
+
     for (;;)
     {
         binary_op_t op;
@@ -324,6 +327,17 @@ static ast_node_t* parser_parse_multiplicative(parser_t* parser)
             op = BIN_DIV;
         else
             break;
+
+        if (++chain > MAX_CHAIN)
+        {
+            parser_report(parser,
+                          parser->previous.span,
+                          "too many chained operators (limit is %d)",
+                          MAX_CHAIN);
+
+            ast_free(left);
+            return NULL;
+        }
 
         ast_node_t* right = parser_parse_unary(parser);
         if (!right)
@@ -353,6 +367,8 @@ static ast_node_t* parser_parse_additive(parser_t* parser)
     if (!left)
         return NULL;
 
+    size_t chain = 0;
+
     for (;;)
     {
         binary_op_t op;
@@ -363,6 +379,17 @@ static ast_node_t* parser_parse_additive(parser_t* parser)
             op = BIN_SUB;
         else
             break;
+
+        if (++chain > MAX_CHAIN)
+        {
+            parser_report(parser,
+                          parser->previous.span,
+                          "too many chained operators (limit is %d)",
+                          MAX_CHAIN);
+
+            ast_free(left);
+            return NULL;
+        }
 
         ast_node_t* right = parser_parse_multiplicative(parser);
         if (!right)
