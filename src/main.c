@@ -5,9 +5,11 @@
 #include "parser.h"
 #include "sema.h"
 
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 
 static char* read_file(const char* path, size_t* length)
 {
@@ -170,10 +172,23 @@ static bool emit_executable(const ast_node_t* program,
     if (!pipe)
         return false;
 
+    void (*old_handler)(int) = signal(SIGPIPE, SIG_IGN);
+
     bool emitted = codegen_emit(pipe, program, slot_count);
     int  status  = pclose(pipe);
 
-    return emitted && status == 0;
+    signal(SIGPIPE, old_handler);
+
+    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+    {
+        if (WIFEXITED(status) && WEXITSTATUS(status) == 127)
+            fprintf(stderr, "nox: error: could not run C compiler '%s'\n", cc);
+        else
+            fprintf(stderr, "nox: error: C compiler '%s' failed\n", cc);
+        return false;
+    }
+
+    return emitted;
 }
 
 static bool emit_assembly(const ast_node_t* program,
@@ -244,14 +259,13 @@ int main(int argc, char** argv)
         }
         else
         {
-            bool ok = options.emit_asm
-                          ? emit_assembly(program,
-                                          sema.slot_count,
-                                          options.output)
-                          : emit_executable(program,
-                                            sema.slot_count,
-                                            options.output ? options.output
-                                                           : "a.out");
+            bool ok =
+                options.emit_asm
+                    ? emit_assembly(program, sema.slot_count, options.output)
+                    : emit_executable(program,
+                                      sema.slot_count,
+                                      options.output ? options.output
+                                                     : "a.out");
 
             if (!ok)
             {
