@@ -2,8 +2,9 @@
 #include "parser.h"
 #include "test.h"
 
-#include <limits.h>
+#include <inttypes.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -94,7 +95,7 @@ static ast_node_t* expr_of(ast_node_t* program)
     return stmt->print.value;
 }
 
-static bool is_int(const ast_node_t* n, long v)
+static bool is_int(const ast_node_t* n, int64_t v)
 {
     return n && n->kind == AST_INTEGER && n->integer == v;
 }
@@ -155,7 +156,7 @@ static void test_ast_program_push_growth(void)
     ASSERT(program->program.count == 0);
     ASSERT(program->program.statements == NULL);
 
-    for (long i = 0; i < 50; i++)
+    for (int64_t i = 0; i < 50; i++)
     {
         ast_node_t* n = ast_integer((source_span_t){0, 0}, i);
         ASSERT(n != NULL);
@@ -165,7 +166,7 @@ static void test_ast_program_push_growth(void)
     ASSERT(program->program.count == 50);
     ASSERT(program->program.capacity >= 50);
 
-    for (long i = 0; i < 50; i++)
+    for (int64_t i = 0; i < 50; i++)
         ASSERT(is_int(program->program.statements[i], i));
 
     ast_free(program);
@@ -264,7 +265,7 @@ static void test_many_statements(void)
 
     ast_node_t* p = parse_ok(buf);
     ASSERT(p && p->program.count == 40);
-    for (long i = 0; i < 40; i++)
+    for (int64_t i = 0; i < 40; i++)
         ASSERT(is_int(p->program.statements[i]->print.value, i));
     ast_free(p);
 }
@@ -453,9 +454,9 @@ static void test_integer_limits(void)
 {
     char src[64];
 
-    snprintf(src, sizeof(src), "print(%ld);", LONG_MAX);
+    snprintf(src, sizeof(src), "print(%" PRId64 ");", (int64_t)INT64_MAX);
     ast_node_t* p = parse_ok(src);
-    ASSERT(is_int(expr_of(p), LONG_MAX));
+    ASSERT(is_int(expr_of(p), (int64_t)INT64_MAX));
     ast_free(p);
 
     p = parse_ok("print(0);");

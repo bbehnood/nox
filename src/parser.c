@@ -6,6 +6,7 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -238,15 +239,16 @@ static ast_node_t* parser_parse_primary(parser_t* parser)
 
         char* end = NULL;
 
-        errno      = 0;
-        long value = strtol(buffer, &end, 10);
+        errno           = 0;
+        long long value = strtoll(buffer, &end, 10);
 
         if (errno == ERANGE)
         {
             parser_report(parser,
                           token.span,
-                          "integer literal is too large (maximum is %ld)",
-                          LONG_MAX);
+                          "integer literal is too large (maximum is %" PRId64
+                          ")",
+                          (int64_t)INT64_MAX);
             return NULL;
         }
 

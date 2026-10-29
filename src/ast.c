@@ -4,6 +4,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
@@ -23,7 +24,7 @@ static ast_node_t* ast_alloc(ast_kind_t kind)
     return node;
 }
 
-ast_node_t* ast_integer(source_span_t span, long value)
+ast_node_t* ast_integer(source_span_t span, int64_t value)
 {
     ast_node_t* node = ast_alloc(AST_INTEGER);
     if (!node)
