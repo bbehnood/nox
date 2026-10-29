@@ -130,6 +130,10 @@ static void gen_node(codegen_t* gen, const ast_node_t* node)
 
 bool codegen_emit(FILE* out, const ast_node_t* program, size_t slot_count)
 {
+#if !defined(__x86_64__) || !defined(__linux__)
+#error "nox currently targets x86-64 Linux only"
+#endif
+
     codegen_t gen = {.out = out, .labels = 0};
 
     size_t frame = (slot_count * SLOT_SIZE + 15) & ~(size_t)15;
@@ -140,8 +144,7 @@ bool codegen_emit(FILE* out, const ast_node_t* program, size_t slot_count)
             ".Lfmt:\n"
             "    .asciz \"%%ld\\n\"\n"
             ".Ldiv_zero_msg:\n"
-            "    .ascii \"" DIV_ZERO_MESSAGE
-            "\"\n"
+            "    .ascii \"" DIV_ZERO_MESSAGE "\"\n"
             "    .set .Ldiv_zero_len, . - .Ldiv_zero_msg\n"
             "\n"
             "    .text\n"
