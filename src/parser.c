@@ -11,14 +11,16 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define DESCRIPTION_MAX    (96)
-#define MAX_NESTING        (256)
-#define MAX_CHAIN          (4096)
-#define TOKEN_TEXT_PREVIEW (24)
+#define DESCRIPTION_MAX     (96)
+#define MAX_NESTING         (256)
+#define MAX_CHAIN           (4096)
+#define TOKEN_TEXT_PREVIEW  (24)
+#define INT64_MIN_MAGNITUDE ((uint64_t)INT64_MAX + 1)
 
 #if defined(__GNUC__) || defined(__clang__)
 #define PRINTF_LIKE(fmt, args) __attribute__((format(printf, fmt, args)))
@@ -214,57 +216,57 @@ static void parser_leave(parser_t* parser)
     parser->depth--;
 }
 
+static bool parse_magnitude(const parser_t* parser,
+                            token_t         token,
+                            uint64_t*       out)
+{
+    uint64_t value = 0;
+
+    for (size_t i = token.span.start; i < token.span.end; i++)
+    {
+        unsigned digit = (unsigned)(parser->source.data[i] - '0');
+
+        if (value > (UINT64_MAX - digit) / 10)
+            return false;
+
+        value = value * 10 + digit;
+    }
+
+    *out = value;
+    return true;
+}
+
+static ast_node_t* parser_parse_integer(parser_t* parser,
+                                        token_t   token,
+                                        bool      negated)
+{
+    uint64_t magnitude;
+    uint64_t limit = negated ? INT64_MIN_MAGNITUDE : (uint64_t)INT64_MAX;
+
+    if (!parse_magnitude(parser, token, &magnitude) || magnitude > limit)
+    {
+        parser_report(parser,
+                      token.span,
+                      "integer literal is too large (maximum is %" PRId64 ")",
+                      (int64_t)INT64_MAX);
+        return NULL;
+    }
+
+    int64_t value =
+        magnitude == INT64_MIN_MAGNITUDE ? INT64_MIN : (int64_t)magnitude;
+
+    return ast_integer(token.span, value);
+}
+
 static ast_node_t* parser_parse_primary(parser_t* parser)
 {
     token_t token = parser->current;
 
     if (parser_match(parser, TOKEN_INTEGER))
-    {
-        size_t length = token.span.end - token.span.start;
-
-        char buffer[64];
-
-        if (length >= sizeof(buffer))
-        {
-            parser_report(parser,
-                          token.span,
-                          "integer literal is too large (maximum is %ld)",
-                          LONG_MAX);
-            return NULL;
-        }
-
-        memcpy(buffer, parser->source.data + token.span.start, length);
-
-        buffer[length] = '\0';
-
-        char* end = NULL;
-
-        errno           = 0;
-        long long value = strtoll(buffer, &end, 10);
-
-        if (errno == ERANGE)
-        {
-            parser_report(parser,
-                          token.span,
-                          "integer literal is too large (maximum is %" PRId64
-                          ")",
-                          (int64_t)INT64_MAX);
-            return NULL;
-        }
-
-        if (*end != '\0')
-        {
-            parser_report(parser, token.span, "invalid integer literal");
-            return NULL;
-        }
-
-        return ast_integer(token.span, value);
-    }
+        return parser_parse_integer(parser, token, false);
 
     if (parser_match(parser, TOKEN_IDENTIFIER))
-    {
         return ast_identifier(token.span);
-    }
 
     if (parser_match(parser, TOKEN_LPAREN))
     {
@@ -295,6 +297,23 @@ static ast_node_t* parser_parse_unary(parser_t* parser)
     if (parser_match(parser, TOKEN_MINUS))
     {
         size_t start = parser->previous.span.start;
+
+        if (parser_check(parser, TOKEN_INTEGER))
+        {
+            token_t  literal = parser->current;
+            uint64_t magnitude;
+
+            if (parse_magnitude(parser, literal, &magnitude) &&
+                magnitude == INT64_MIN_MAGNITUDE)
+            {
+                parser_advance(parser);
+
+                ast_node_t* node = parser_parse_integer(parser, literal, true);
+                if (node)
+                    node->span.start = start;
+                return node;
+            }
+        }
 
         if (!parser_enter(parser))
             return NULL;

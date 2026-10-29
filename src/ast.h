@@ -79,7 +79,7 @@ typedef struct ast_node
     };
 } ast_node_t;
 
-ast_node_t* ast_integer(source_span_t span, long value);
+ast_node_t* ast_integer(source_span_t span, int64_t value);
 
 ast_node_t* ast_identifier(source_span_t span);
 

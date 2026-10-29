@@ -468,6 +468,76 @@ static void test_integer_limits(void)
     ast_free(p);
 }
 
+static void test_int64_min_literal(void)
+{
+    const char* src = "print(-9223372036854775808);";
+    ast_node_t* p   = parse_ok(src);
+    ast_node_t* e   = expr_of(p);
+
+    ASSERT(is_int(e, INT64_MIN));
+    ASSERT(e->span.start == 6);
+    ASSERT(e->span.end == 26);
+    ast_free(p);
+
+    p = parse_ok("let x = -9223372036854775808;");
+    ASSERT(is_int(p->program.statements[0]->let.value, INT64_MIN));
+    ast_free(p);
+
+    p = parse_ok("print(1 - -9223372036854775808);");
+    e = expr_of(p);
+    ASSERT(is_bin(e, BIN_SUB));
+    ASSERT(is_int(e->binary.right, INT64_MIN));
+    ast_free(p);
+
+    p = parse_ok("print(-9223372036854775808 * 2);");
+    e = expr_of(p);
+    ASSERT(is_bin(e, BIN_MUL));
+    ASSERT(is_int(e->binary.left, INT64_MIN));
+    ast_free(p);
+}
+
+static void test_negated_literals_stay_unary(void)
+{
+    ast_node_t* p = parse_ok("print(-9223372036854775807);");
+    ast_node_t* e = expr_of(p);
+    ASSERT(is_neg(e));
+    ASSERT(is_int(e->unary.operand, INT64_MAX));
+    ast_free(p);
+
+    p = parse_ok("print(- -9223372036854775808);");
+    e = expr_of(p);
+    ASSERT(is_neg(e));
+    ASSERT(is_int(e->unary.operand, INT64_MIN));
+    ast_free(p);
+}
+
+static void test_leading_zeros(void)
+{
+    enum
+    {
+        PREFIX = 6,
+        ZEROS  = 70,
+    };
+
+    char src[PREFIX + ZEROS + 32];
+
+    memcpy(src, "print(", PREFIX);
+    memset(src + PREFIX, '0', ZEROS);
+
+    strcpy(src + PREFIX + ZEROS, "1);");
+    ast_node_t* p = parse_ok(src);
+    ASSERT(is_int(expr_of(p), 1));
+    ast_free(p);
+
+    strcpy(src + PREFIX + ZEROS, "9223372036854775808);");
+    expect_fail(src);
+
+    strcpy(src + PREFIX + ZEROS, "9223372036854775807);");
+    p = parse_ok(src);
+    ASSERT(is_int(expr_of(p), INT64_MAX));
+    ast_free(p);
+}
+
 static void test_comments_in_program(void)
 {
     ast_node_t* p = parse_ok("// header\nlet x = 1; // trailing\nprint(x);\n");
@@ -537,6 +607,11 @@ static void test_integer_literal_errors(void)
 {
     expect_fail("print(9223372036854775808);");
     expect_fail("print(99999999999999999999999999);");
+    expect_fail("print(-9223372036854775809);");
+    expect_fail("print(-(9223372036854775808));");
+    expect_fail("print(1 -9223372036854775808);");
+    expect_fail("print(18446744073709551615);");
+    expect_fail("print(18446744073709551616);");
 
     char big[128];
     memset(big, '1', sizeof(big));
@@ -701,6 +776,11 @@ static void test_integer_diagnostics(void)
                 "integer literal is too large (maximum is 9223372036854775807)",
                 6,
                 86);
+
+    expect_diag("print(-9223372036854775809);",
+                "integer literal is too large (maximum is 9223372036854775807)",
+                7,
+                26);
 }
 
 static void test_long_names_are_clipped_in_messages(void)
@@ -784,6 +864,9 @@ int main(void)
     test_unary_precedence();
     test_unary_nested();
     test_integer_limits();
+    test_int64_min_literal();
+    test_negated_literals_stay_unary();
+    test_leading_zeros();
     test_comments_in_program();
     test_keywords_not_identifiers();
 

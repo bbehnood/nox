@@ -133,7 +133,6 @@ bool codegen_emit(FILE* out, const ast_node_t* program, size_t slot_count)
 #if !defined(__x86_64__) || !defined(__linux__)
 #error "nox currently targets x86-64 Linux only"
 #endif
-
     codegen_t gen = {.out = out, .labels = 0};
 
     size_t frame = (slot_count * SLOT_SIZE + 15) & ~(size_t)15;
