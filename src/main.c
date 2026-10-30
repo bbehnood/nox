@@ -15,7 +15,7 @@ static char* read_file(const char* path, size_t* length)
 {
     FILE* file = fopen(path, "rb");
     if (!file)
-        return NULL;
+        return nullptr;
 
     size_t capacity = 4096;
     size_t size     = 0;
@@ -32,7 +32,7 @@ static char* read_file(const char* path, size_t* length)
         if (!grown)
         {
             free(data);
-            data = NULL;
+            data = nullptr;
             break;
         }
 
@@ -46,7 +46,7 @@ static char* read_file(const char* path, size_t* length)
     if (data && failed)
     {
         free(data);
-        return NULL;
+        return nullptr;
     }
 
     if (data)
@@ -76,7 +76,11 @@ static void usage(const char* program)
 
 static bool parse_args(int argc, char** argv, options_t* options)
 {
-    *options = (options_t){.input = NULL, .output = NULL, .emit_asm = false};
+    *options = (options_t){
+        .input    = nullptr,
+        .output   = nullptr,
+        .emit_asm = false,
+    };
 
     for (int i = 1; i < argc; i++)
     {
@@ -105,7 +109,7 @@ static bool parse_args(int argc, char** argv, options_t* options)
         }
     }
 
-    return options->input != NULL;
+    return options->input != nullptr;
 }
 
 static char* shell_quote(const char* text)
@@ -117,7 +121,7 @@ static char* shell_quote(const char* text)
 
     char* quoted = malloc(length + 1);
     if (!quoted)
-        return NULL;
+        return nullptr;
 
     char* out = quoted;
     *out++    = '\'';

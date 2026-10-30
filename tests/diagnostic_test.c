@@ -18,7 +18,7 @@ static void render(char*       out,
     snprintf(d.message, sizeof(d.message), "%s", message);
 
     FILE* f = tmpfile();
-    ASSERT(f != NULL);
+    ASSERT(f != nullptr);
     if (!f)
     {
         out[0] = '\0';

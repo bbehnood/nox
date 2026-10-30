@@ -187,7 +187,7 @@ static void test_comments(void)
 {
     lexer_t lexer;
 
-    expect_types("// nothing here", NULL, 0);
+    expect_types("// nothing here", nullptr, 0);
 
     lexer_init(&lexer, SRC("1 // one\n2"));
     token_t t = lexer_next(&lexer);
@@ -199,8 +199,8 @@ static void test_comments(void)
     token_type_t want[] = {TOKEN_IDENTIFIER};
     expect_types("// a\n// b\nx", want, 1);
 
-    expect_types("/// triple", NULL, 0);
-    expect_types("// // x", NULL, 0);
+    expect_types("/// triple", nullptr, 0);
+    expect_types("// // x", nullptr, 0);
 
     expect_types("// c\r\nx", want, 1);
 }

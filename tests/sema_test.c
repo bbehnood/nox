@@ -13,7 +13,7 @@ static ast_node_t* check(sema_t* sema, const char* text, bool* ok)
     parser_init(&parser, SRC(text));
 
     ast_node_t* program = parser_parse(&parser);
-    ASSERT(program != NULL);
+    ASSERT(program != nullptr);
 
     sema_init(sema, SRC(text));
     *ok = program && sema_check(sema, program);
@@ -48,7 +48,7 @@ static void test_no_variables(void)
 
     ASSERT(ok);
     ASSERT(sema.slot_count == 0);
-    ASSERT(sema_error(&sema) == NULL);
+    ASSERT(sema_error(&sema) == nullptr);
 
     ast_free(p);
     sema_free(&sema);
@@ -63,8 +63,8 @@ static void test_undeclared(void)
     ast_node_t* p    = check(&sema, text, &ok);
 
     ASSERT(!ok);
-    ASSERT(sema_error(&sema) != NULL);
-    ASSERT(strstr(sema_error(&sema)->message, "undeclared") != NULL);
+    ASSERT(sema_error(&sema) != nullptr);
+    ASSERT(strstr(sema_error(&sema)->message, "undeclared") != nullptr);
     ASSERT(sema_error(&sema)->span.start == 6);
 
     ast_free(p);
@@ -92,7 +92,7 @@ static void test_self_reference(void)
     ast_node_t* p = check(&sema, "let x = x;", &ok);
 
     ASSERT(!ok);
-    ASSERT(strstr(sema_error(&sema)->message, "undeclared") != NULL);
+    ASSERT(strstr(sema_error(&sema)->message, "undeclared") != nullptr);
 
     ast_free(p);
     sema_free(&sema);
@@ -106,7 +106,7 @@ static void test_redeclaration(void)
     ast_node_t* p = check(&sema, "let x = 1; let x = 2;", &ok);
 
     ASSERT(!ok);
-    ASSERT(strstr(sema_error(&sema)->message, "already declared") != NULL);
+    ASSERT(strstr(sema_error(&sema)->message, "already declared") != nullptr);
     ASSERT(sema_error(&sema)->span.start == 15);
 
     ast_free(p);
@@ -149,7 +149,7 @@ static void test_unary_undeclared(void)
     ast_node_t* p = check(&sema, "print(-b);", &ok);
 
     ASSERT(!ok);
-    ASSERT(strstr(sema_error(&sema)->message, "undeclared") != NULL);
+    ASSERT(strstr(sema_error(&sema)->message, "undeclared") != nullptr);
 
     ast_free(p);
     sema_free(&sema);

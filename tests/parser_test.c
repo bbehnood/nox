@@ -20,7 +20,7 @@ static ast_node_t* parse_ok(const char* text)
     ast_node_t* program = parse(text);
     if (!program)
         fprintf(stderr, "  unexpected parse failure for \"%s\"\n", text);
-    ASSERT(program != NULL);
+    ASSERT(program != nullptr);
     return program;
 }
 
@@ -32,18 +32,18 @@ static void expect_fail(const char* text)
     ast_node_t* program = parser_parse(&parser);
     if (program)
         fprintf(stderr, "  \"%s\" should not have parsed\n", text);
-    ASSERT(program == NULL);
+    ASSERT(program == nullptr);
     ast_free(program);
 
     const diagnostic_t* d = parser_error(&parser);
     if (!d)
         fprintf(stderr, "  \"%s\" failed without a diagnostic\n", text);
-    ASSERT(d != NULL);
+    ASSERT(d != nullptr);
 
     if (d)
     {
         ASSERT(d->message[0] != '\0');
-        ASSERT(strchr(d->message, '\n') == NULL);
+        ASSERT(strchr(d->message, '\n') == nullptr);
         ASSERT(d->span.start <= d->span.end);
         ASSERT(d->span.end <= strlen(text));
     }
@@ -58,11 +58,11 @@ static void expect_diag(const char* text,
     parser_init(&parser, (source_t){.data = text, .length = strlen(text)});
 
     ast_node_t* program = parser_parse(&parser);
-    ASSERT(program == NULL);
+    ASSERT(program == nullptr);
     ast_free(program);
 
     const diagnostic_t* d = parser_error(&parser);
-    ASSERT(d != NULL);
+    ASSERT(d != nullptr);
     if (!d)
         return;
 
@@ -145,7 +145,7 @@ static void test_ast_constructors(void)
 
 static void test_ast_free_null(void)
 {
-    ast_free(NULL);
+    ast_free(nullptr);
     ASSERT(1);
 }
 
@@ -154,12 +154,12 @@ static void test_ast_program_push_growth(void)
     ast_node_t* program = ast_program();
     ASSERT(program && program->kind == AST_PROGRAM);
     ASSERT(program->program.count == 0);
-    ASSERT(program->program.statements == NULL);
+    ASSERT(program->program.statements == nullptr);
 
     for (int64_t i = 0; i < 50; i++)
     {
         ast_node_t* n = ast_integer((source_span_t){0, 0}, i);
-        ASSERT(n != NULL);
+        ASSERT(n != nullptr);
         ASSERT(ast_program_push(program, n));
     }
 
@@ -666,8 +666,8 @@ static void test_valid_parse_has_no_error(void)
     parser_init(&parser, (source_t){.data = text, .length = strlen(text)});
 
     ast_node_t* p = parser_parse(&parser);
-    ASSERT(p != NULL);
-    ASSERT(parser_error(&parser) == NULL);
+    ASSERT(p != nullptr);
+    ASSERT(parser_error(&parser) == nullptr);
     ast_free(p);
 }
 
@@ -792,14 +792,14 @@ static void test_long_names_are_clipped_in_messages(void)
 
     parser_t parser;
     parser_init(&parser, (source_t){.data = text, .length = strlen(text)});
-    ASSERT(parser_parse(&parser) == NULL);
+    ASSERT(parser_parse(&parser) == nullptr);
 
     const diagnostic_t* d = parser_error(&parser);
-    ASSERT(d != NULL);
+    ASSERT(d != nullptr);
     if (d)
     {
         ASSERT(strstr(d->message, "identifier 'aaaaaaaaaaaaaaaaaaaaaaaa...'") !=
-               NULL);
+               nullptr);
         ASSERT(d->span.start == 0 && d->span.end == 40);
     }
 }
@@ -819,13 +819,13 @@ static void test_error_state_resets_on_init(void)
     const char* good = "let x = 1;";
 
     parser_init(&parser, (source_t){.data = bad, .length = strlen(bad)});
-    ASSERT(parser_parse(&parser) == NULL);
-    ASSERT(parser_error(&parser) != NULL);
+    ASSERT(parser_parse(&parser) == nullptr);
+    ASSERT(parser_error(&parser) != nullptr);
 
     parser_init(&parser, (source_t){.data = good, .length = strlen(good)});
     ast_node_t* p = parser_parse(&parser);
-    ASSERT(p != NULL);
-    ASSERT(parser_error(&parser) == NULL);
+    ASSERT(p != nullptr);
+    ASSERT(parser_error(&parser) == nullptr);
     ast_free(p);
 }
 

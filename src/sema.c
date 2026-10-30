@@ -10,7 +10,7 @@
 void sema_init(sema_t* sema, source_t source)
 {
     sema->source     = source;
-    sema->symbols    = NULL;
+    sema->symbols    = nullptr;
     sema->count      = 0;
     sema->capacity   = 0;
     sema->slot_count = 0;
@@ -23,14 +23,14 @@ void sema_init(sema_t* sema, source_t source)
 void sema_free(sema_t* sema)
 {
     free(sema->symbols);
-    sema->symbols  = NULL;
+    sema->symbols  = nullptr;
     sema->count    = 0;
     sema->capacity = 0;
 }
 
 const diagnostic_t* sema_error(const sema_t* sema)
 {
-    return sema->failed ? &sema->diagnostic : NULL;
+    return sema->failed ? &sema->diagnostic : nullptr;
 }
 
 static void fail(sema_t* sema, source_span_t span, const char* fmt, ...)
@@ -67,7 +67,7 @@ static const symbol_t* lookup(const sema_t* sema, source_span_t name)
             return &sema->symbols[i];
     }
 
-    return NULL;
+    return nullptr;
 }
 
 static bool declare(sema_t* sema, source_span_t name, size_t* slot)

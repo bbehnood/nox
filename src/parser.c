@@ -248,7 +248,7 @@ static ast_node_t* parser_parse_integer(parser_t* parser,
                       token.span,
                       "integer literal is too large (maximum is %" PRId64 ")",
                       (int64_t)INT64_MAX);
-        return NULL;
+        return nullptr;
     }
 
     int64_t value =
@@ -270,17 +270,17 @@ static ast_node_t* parser_parse_primary(parser_t* parser)
     if (parser_match(parser, TOKEN_LPAREN))
     {
         if (!parser_enter(parser))
-            return NULL;
+            return nullptr;
         ast_node_t* expression = parser_parse_expression(parser);
         parser_leave(parser);
 
         if (!expression)
-            return NULL;
+            return nullptr;
 
         if (!parser_expect(parser, TOKEN_RPAREN, "')' to close the '('"))
         {
             ast_free(expression);
-            return NULL;
+            return nullptr;
         }
 
         return expression;
@@ -288,7 +288,7 @@ static ast_node_t* parser_parse_primary(parser_t* parser)
 
     parser_fail_expected(parser, "an expression");
 
-    return NULL;
+    return nullptr;
 }
 
 static ast_node_t* parser_parse_unary(parser_t* parser)
@@ -315,12 +315,12 @@ static ast_node_t* parser_parse_unary(parser_t* parser)
         }
 
         if (!parser_enter(parser))
-            return NULL;
+            return nullptr;
         ast_node_t* operand = parser_parse_unary(parser);
         parser_leave(parser);
 
         if (!operand)
-            return NULL;
+            return nullptr;
 
         source_span_t span = {.start = start, .end = operand->span.end};
         return ast_unary(span, UN_NEG, operand);
@@ -333,7 +333,7 @@ static ast_node_t* parser_parse_multiplicative(parser_t* parser)
 {
     ast_node_t* left = parser_parse_unary(parser);
     if (!left)
-        return NULL;
+        return nullptr;
 
     size_t chain = 0;
 
@@ -356,14 +356,14 @@ static ast_node_t* parser_parse_multiplicative(parser_t* parser)
                           MAX_CHAIN);
 
             ast_free(left);
-            return NULL;
+            return nullptr;
         }
 
         ast_node_t* right = parser_parse_unary(parser);
         if (!right)
         {
             ast_free(left);
-            return NULL;
+            return nullptr;
         }
 
         source_span_t span = {
@@ -373,7 +373,7 @@ static ast_node_t* parser_parse_multiplicative(parser_t* parser)
 
         ast_node_t* binary = ast_binary(span, op, left, right);
         if (!binary)
-            return NULL;
+            return nullptr;
 
         left = binary;
     }
@@ -385,7 +385,7 @@ static ast_node_t* parser_parse_additive(parser_t* parser)
 {
     ast_node_t* left = parser_parse_multiplicative(parser);
     if (!left)
-        return NULL;
+        return nullptr;
 
     size_t chain = 0;
 
@@ -408,14 +408,14 @@ static ast_node_t* parser_parse_additive(parser_t* parser)
                           MAX_CHAIN);
 
             ast_free(left);
-            return NULL;
+            return nullptr;
         }
 
         ast_node_t* right = parser_parse_multiplicative(parser);
         if (!right)
         {
             ast_free(left);
-            return NULL;
+            return nullptr;
         }
 
         source_span_t span = {
@@ -425,7 +425,7 @@ static ast_node_t* parser_parse_additive(parser_t* parser)
 
         ast_node_t* binary = ast_binary(span, op, left, right);
         if (!binary)
-            return NULL;
+            return nullptr;
 
         left = binary;
     }
@@ -445,7 +445,7 @@ static ast_node_t* parser_parse_let(parser_t* parser)
     if (!parser_check(parser, TOKEN_IDENTIFIER))
     {
         parser_fail_expected(parser, "a variable name after 'let'");
-        return NULL;
+        return nullptr;
     }
 
     token_t name = parser->current;
@@ -453,16 +453,16 @@ static ast_node_t* parser_parse_let(parser_t* parser)
     parser_advance(parser);
 
     if (!parser_expect(parser, TOKEN_EQUALS, "'=' after the variable name"))
-        return NULL;
+        return nullptr;
 
     ast_node_t* value = parser_parse_expression(parser);
     if (!value)
-        return NULL;
+        return nullptr;
 
     if (!parser_expect(parser, TOKEN_SEMICOLON, "';' after the let statement"))
     {
         ast_free(value);
-        return NULL;
+        return nullptr;
     }
 
     source_span_t span = {
@@ -478,16 +478,16 @@ static ast_node_t* parser_parse_print(parser_t* parser)
     size_t start = parser->previous.span.start;
 
     if (!parser_expect(parser, TOKEN_LPAREN, "'(' after 'print'"))
-        return NULL;
+        return nullptr;
 
     ast_node_t* value = parser_parse_expression(parser);
     if (!value)
-        return NULL;
+        return nullptr;
 
     if (!parser_expect(parser, TOKEN_RPAREN, "')' after the expression"))
     {
         ast_free(value);
-        return NULL;
+        return nullptr;
     }
 
     if (!parser_expect(parser,
@@ -495,7 +495,7 @@ static ast_node_t* parser_parse_print(parser_t* parser)
                        "';' after the print statement"))
     {
         ast_free(value);
-        return NULL;
+        return nullptr;
     }
 
     source_span_t span = {
@@ -520,7 +520,7 @@ static ast_node_t* parser_parse_statement(parser_t* parser)
 
     parser_fail_expected(parser, "a statement ('let' or 'print')");
 
-    return NULL;
+    return nullptr;
 }
 
 void parser_init(parser_t* parser, source_t source)
@@ -552,7 +552,7 @@ ast_node_t* parser_parse(parser_t* parser)
     if (!program)
     {
         parser_report(parser, parser->current.span, "out of memory");
-        return NULL;
+        return nullptr;
     }
 
     while (!parser_check(parser, TOKEN_EOF))
@@ -564,7 +564,7 @@ ast_node_t* parser_parse(parser_t* parser)
 
             ast_free(statement);
             ast_free(program);
-            return NULL;
+            return nullptr;
         }
     }
 
@@ -576,5 +576,5 @@ ast_node_t* parser_parse(parser_t* parser)
 
 const diagnostic_t* parser_error(const parser_t* parser)
 {
-    return parser->failed ? &parser->diagnostic : NULL;
+    return parser->failed ? &parser->diagnostic : nullptr;
 }

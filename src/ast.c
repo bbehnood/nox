@@ -14,7 +14,7 @@ static ast_node_t* ast_alloc(ast_kind_t kind)
 {
     ast_node_t* node = malloc(sizeof(*node));
     if (!node)
-        return NULL;
+        return nullptr;
 
     node->kind = kind;
     node->span = (source_span_t){.start = 0, .end = 0};
@@ -27,7 +27,7 @@ ast_node_t* ast_integer(source_span_t span, int64_t value)
 {
     ast_node_t* node = ast_alloc(AST_INTEGER);
     if (!node)
-        return NULL;
+        return nullptr;
 
     node->span    = span;
     node->integer = value;
@@ -40,7 +40,7 @@ ast_node_t* ast_identifier(source_span_t span)
     ast_node_t* node = ast_alloc(AST_IDENTIFIER);
 
     if (!node)
-        return NULL;
+        return nullptr;
 
     node->span       = span;
     node->identifier = span;
@@ -58,7 +58,7 @@ ast_node_t* ast_binary(source_span_t span,
     {
         ast_free(left);
         ast_free(right);
-        return NULL;
+        return nullptr;
     }
 
     node->span = span;
@@ -76,7 +76,7 @@ ast_node_t* ast_unary(source_span_t span, unary_op_t op, ast_node_t* operand)
     if (!node)
     {
         ast_free(operand);
-        return NULL;
+        return nullptr;
     }
 
     node->span          = span;
@@ -90,10 +90,10 @@ ast_node_t* ast_let(source_span_t span, source_span_t name, ast_node_t* value)
 {
     ast_node_t* node = ast_alloc(AST_LET);
 
-    if (node == NULL)
+    if (node == nullptr)
     {
         ast_free(value);
-        return NULL;
+        return nullptr;
     }
 
     node->span      = span;
@@ -107,10 +107,10 @@ ast_node_t* ast_print(source_span_t span, ast_node_t* value)
 {
     ast_node_t* node = ast_alloc(AST_PRINT);
 
-    if (node == NULL)
+    if (node == nullptr)
     {
         ast_free(value);
-        return NULL;
+        return nullptr;
     }
 
     node->span        = span;
@@ -123,9 +123,9 @@ ast_node_t* ast_program(void)
 {
     ast_node_t* node = ast_alloc(AST_PROGRAM);
     if (!node)
-        return NULL;
+        return nullptr;
 
-    node->program.statements = NULL;
+    node->program.statements = nullptr;
     node->program.count      = 0;
     node->program.capacity   = 0;
 
