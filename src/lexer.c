@@ -1,7 +1,6 @@
 #include "lexer.h"
 
 #include <ctype.h>
-#include <stdbool.h>
 #include <stddef.h>
 
 static bool lexer_at_end(const lexer_t* lexer)

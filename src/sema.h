@@ -5,7 +5,6 @@
 #include "diagnostic.h"
 #include "lexer.h"
 
-#include <stdbool.h>
 #include <stddef.h>
 
 typedef struct symbol
