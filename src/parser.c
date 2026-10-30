@@ -21,6 +21,8 @@
 #define TOKEN_TEXT_PREVIEW  (24)
 #define INT64_MIN_MAGNITUDE ((uint64_t)INT64_MAX + 1)
 
+static_assert(INT64_MIN_MAGNITUDE == UINT64_C(1) << 63);
+
 static ast_node_t* parser_parse_expression(parser_t* parser);
 
 static void parser_advance(parser_t* parser)

@@ -9,6 +9,8 @@
 
 #define SLOT_SIZE (8)
 
+static_assert(SLOT_SIZE == sizeof(int64_t), "a slot must hold an int64_t");
+
 #define DIV_ZERO_MESSAGE "nox: runtime error: division by zero\\n"
 
 typedef struct codegen
