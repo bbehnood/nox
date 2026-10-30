@@ -76,11 +76,7 @@ static void usage(const char* program)
 
 static bool parse_args(int argc, char** argv, options_t* options)
 {
-    *options = (options_t){
-        .input    = nullptr,
-        .output   = nullptr,
-        .emit_asm = false,
-    };
+    *options = (options_t){};
 
     for (int i = 1; i < argc; i++)
     {

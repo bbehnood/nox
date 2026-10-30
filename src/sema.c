@@ -9,15 +9,7 @@
 
 void sema_init(sema_t* sema, source_t source)
 {
-    sema->source     = source;
-    sema->symbols    = nullptr;
-    sema->count      = 0;
-    sema->capacity   = 0;
-    sema->slot_count = 0;
-    sema->failed     = false;
-
-    sema->diagnostic.span       = (source_span_t){.start = 0, .end = 0};
-    sema->diagnostic.message[0] = '\0';
+    *sema = (sema_t){.source = source};
 }
 
 void sema_free(sema_t* sema)

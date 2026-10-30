@@ -17,7 +17,7 @@ static ast_node_t* ast_alloc(ast_kind_t kind)
         return nullptr;
 
     node->kind = kind;
-    node->span = (source_span_t){.start = 0, .end = 0};
+    node->span = (source_span_t){};
     node->slot = 0;
 
     return node;

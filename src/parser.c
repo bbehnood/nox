@@ -520,25 +520,14 @@ static ast_node_t* parser_parse_statement(parser_t* parser)
 
 void parser_init(parser_t* parser, source_t source)
 {
-    parser->source = source;
-    parser->failed = false;
-    parser->depth  = 0;
-
-    parser->diagnostic.span       = (source_span_t){.start = 0, .end = 0};
-    parser->diagnostic.message[0] = '\0';
+    *parser = (parser_t){
+        .source   = source,
+        .previous = {.type = TOKEN_EOF},
+    };
 
     lexer_init(&parser->lexer, source);
 
     parser->current = lexer_next(&parser->lexer);
-
-    parser->previous = (token_t){
-        .type = TOKEN_EOF,
-        .span =
-            {
-                .start = 0,
-                .end   = 0,
-            },
-    };
 }
 
 ast_node_t* parser_parse(parser_t* parser)
