@@ -5,7 +5,7 @@ project(
   license: 'Apache-2.0',
   meson_version: '>=1.1',
   default_options: [
-    'c_std=c11',
+    'c_std=c23,c2x',
     'warning_level=3',
     'buildtype=debugoptimized',
     'b_ndebug=if-release',
