@@ -23,6 +23,7 @@ typedef struct parser
 
 void parser_init(parser_t* parser, source_t source);
 
+[[nodiscard]]
 ast_node_t* parser_parse(parser_t* parser);
 
 const diagnostic_t* parser_error(const parser_t* parser);

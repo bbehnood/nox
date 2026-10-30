@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <stdio.h>
 
+[[nodiscard]]
 bool codegen_emit(FILE* out, const ast_node_t* program, size_t slot_count);
 
 #endif

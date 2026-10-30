@@ -29,6 +29,7 @@ typedef struct sema
 
 void sema_init(sema_t* sema, source_t source);
 
+[[nodiscard]]
 bool sema_check(sema_t* sema, ast_node_t* program);
 
 const diagnostic_t* sema_error(const sema_t* sema);

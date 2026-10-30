@@ -33,6 +33,7 @@ const diagnostic_t* sema_error(const sema_t* sema)
     return sema->failed ? &sema->diagnostic : nullptr;
 }
 
+[[gnu::format(printf, 3, 4)]]
 static void fail(sema_t* sema, source_span_t span, const char* fmt, ...)
 {
     if (sema->failed)

@@ -21,12 +21,6 @@
 #define TOKEN_TEXT_PREVIEW  (24)
 #define INT64_MIN_MAGNITUDE ((uint64_t)INT64_MAX + 1)
 
-#if defined(__GNUC__) || defined(__clang__)
-#define PRINTF_LIKE(fmt, args) __attribute__((format(printf, fmt, args)))
-#else
-#define PRINTF_LIKE(fmt, args)
-#endif
-
 static ast_node_t* parser_parse_expression(parser_t* parser);
 
 static void parser_advance(parser_t* parser)
@@ -49,11 +43,7 @@ static bool parser_match(parser_t* parser, token_type_t type)
     return true;
 }
 
-static void parser_report(parser_t*     parser,
-                          source_span_t span,
-                          const char*   format,
-                          ...) PRINTF_LIKE(3, 4);
-
+[[gnu::format(printf, 3, 4)]]
 static void parser_report(parser_t*     parser,
                           source_span_t span,
                           const char*   format,
@@ -180,6 +170,7 @@ static void parser_fail_expected(parser_t* parser, const char* expected)
     parser_report(parser, span, "expected %s, found %s", expected, found);
 }
 
+[[nodiscard]]
 static bool parser_expect(parser_t*    parser,
                           token_type_t type,
                           const char*  expected)
@@ -194,6 +185,7 @@ static bool parser_expect(parser_t*    parser,
     return true;
 }
 
+[[nodiscard]]
 static bool parser_enter(parser_t* parser)
 {
     if (parser->depth >= MAX_NESTING)
@@ -215,6 +207,7 @@ static void parser_leave(parser_t* parser)
     parser->depth--;
 }
 
+[[nodiscard]]
 static bool parse_magnitude(const parser_t* parser,
                             token_t         token,
                             uint64_t*       out)

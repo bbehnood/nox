@@ -78,23 +78,31 @@ typedef struct ast_node
     };
 } ast_node_t;
 
+[[nodiscard]]
 ast_node_t* ast_integer(source_span_t span, int64_t value);
 
+[[nodiscard]]
 ast_node_t* ast_identifier(source_span_t span);
 
+[[nodiscard]]
 ast_node_t* ast_binary(source_span_t span,
                        binary_op_t   op,
                        ast_node_t*   left,
                        ast_node_t*   right);
 
+[[nodiscard]]
 ast_node_t* ast_unary(source_span_t span, unary_op_t op, ast_node_t* operand);
 
+[[nodiscard]]
 ast_node_t* ast_let(source_span_t span, source_span_t name, ast_node_t* value);
 
+[[nodiscard]]
 ast_node_t* ast_print(source_span_t span, ast_node_t* value);
 
+[[nodiscard]]
 ast_node_t* ast_program(void);
 
+[[nodiscard]]
 bool ast_program_push(ast_node_t* program, ast_node_t* statement);
 
 void ast_free(ast_node_t* node);
