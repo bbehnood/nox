@@ -314,7 +314,7 @@ static ast_node_t* parser_parse_unary(parser_t* parser)
             return nullptr;
 
         source_span_t span = {.start = start, .end = operand->span.end};
-        return ast_unary(span, UN_NEG, operand);
+        return ast_unary(span, UNARY_OP_NEG, operand);
     }
 
     return parser_parse_primary(parser);
@@ -333,9 +333,9 @@ static ast_node_t* parser_parse_multiplicative(parser_t* parser)
         binary_op_t op;
 
         if (parser_match(parser, TOKEN_STAR))
-            op = BIN_MUL;
+            op = BINARY_OP_MUL;
         else if (parser_match(parser, TOKEN_SLASH))
-            op = BIN_DIV;
+            op = BINARY_OP_DIV;
         else
             break;
 
@@ -385,9 +385,9 @@ static ast_node_t* parser_parse_additive(parser_t* parser)
         binary_op_t op;
 
         if (parser_match(parser, TOKEN_PLUS))
-            op = BIN_ADD;
+            op = BINARY_OP_ADD;
         else if (parser_match(parser, TOKEN_MINUS))
-            op = BIN_SUB;
+            op = BINARY_OP_SUB;
         else
             break;
 

@@ -22,15 +22,15 @@ typedef enum ast_kind
 
 typedef enum binary_op
 {
-    BIN_ADD,
-    BIN_SUB,
-    BIN_MUL,
-    BIN_DIV,
+    BINARY_OP_ADD,
+    BINARY_OP_SUB,
+    BINARY_OP_MUL,
+    BINARY_OP_DIV,
 } binary_op_t;
 
 typedef enum unary_op
 {
-    UN_NEG,
+    UNARY_OP_NEG,
 } unary_op_t;
 
 typedef struct ast_node

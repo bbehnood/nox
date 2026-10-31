@@ -59,19 +59,19 @@ static void gen_binary(codegen_t* gen, const ast_node_t* node)
 
     switch (node->binary.op)
     {
-    case BIN_ADD:
+    case BINARY_OP_ADD:
         fprintf(gen->out, "    add rax, rcx\n");
         break;
 
-    case BIN_SUB:
+    case BINARY_OP_SUB:
         fprintf(gen->out, "    sub rax, rcx\n");
         break;
 
-    case BIN_MUL:
+    case BINARY_OP_MUL:
         fprintf(gen->out, "    imul rax, rcx\n");
         break;
 
-    case BIN_DIV:
+    case BINARY_OP_DIV:
         gen_division(gen);
         break;
     }
@@ -100,7 +100,7 @@ static void gen_node(codegen_t* gen, const ast_node_t* node)
 
         switch (node->unary.op)
         {
-        case UN_NEG:
+        case UNARY_OP_NEG:
             fprintf(gen->out, "    neg rax\n");
             break;
         }

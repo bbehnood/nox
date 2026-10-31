@@ -107,7 +107,7 @@ static bool is_bin(const ast_node_t* n, binary_op_t op)
 
 static bool is_neg(const ast_node_t* n)
 {
-    return n && n->kind == AST_UNARY && n->unary.op == UN_NEG;
+    return n && n->kind == AST_UNARY && n->unary.op == UNARY_OP_NEG;
 }
 
 static void test_ast_constructors(void)
@@ -122,8 +122,8 @@ static void test_ast_constructors(void)
     ASSERT(id && id->kind == AST_IDENTIFIER);
     ASSERT(id->identifier.start == 3 && id->identifier.end == 5);
 
-    ast_node_t* b = ast_binary(sp, BIN_SUB, i, id);
-    ASSERT(b && b->kind == AST_BINARY && b->binary.op == BIN_SUB);
+    ast_node_t* b = ast_binary(sp, BINARY_OP_SUB, i, id);
+    ASSERT(b && b->kind == AST_BINARY && b->binary.op == BINARY_OP_SUB);
     ASSERT(b->binary.left == i && b->binary.right == id);
 
     ast_node_t* l = ast_let(sp, (source_span_t){.start = 0, .end = 1}, b);
@@ -133,8 +133,8 @@ static void test_ast_constructors(void)
     ast_node_t* p = ast_print(sp, ast_integer(sp, 1));
     ASSERT(p && p->kind == AST_PRINT && is_int(p->print.value, 1));
 
-    ast_node_t* u = ast_unary(sp, UN_NEG, ast_integer(sp, 4));
-    ASSERT(u && u->kind == AST_UNARY && u->unary.op == UN_NEG);
+    ast_node_t* u = ast_unary(sp, UNARY_OP_NEG, ast_integer(sp, 4));
+    ASSERT(u && u->kind == AST_UNARY && u->unary.op == UNARY_OP_NEG);
     ASSERT(is_int(u->unary.operand, 4));
     ASSERT(u->span.start == 3 && u->span.end == 5);
     ast_free(u);
@@ -286,17 +286,17 @@ static void test_precedence(void)
 {
     ast_node_t* p = parse_ok("print(1 + 2 * 3);");
     ast_node_t* e = expr_of(p);
-    ASSERT(is_bin(e, BIN_ADD));
+    ASSERT(is_bin(e, BINARY_OP_ADD));
     ASSERT(is_int(e->binary.left, 1));
-    ASSERT(is_bin(e->binary.right, BIN_MUL));
+    ASSERT(is_bin(e->binary.right, BINARY_OP_MUL));
     ASSERT(is_int(e->binary.right->binary.left, 2));
     ASSERT(is_int(e->binary.right->binary.right, 3));
     ast_free(p);
 
     p = parse_ok("print(1 * 2 + 3);");
     e = expr_of(p);
-    ASSERT(is_bin(e, BIN_ADD));
-    ASSERT(is_bin(e->binary.left, BIN_MUL));
+    ASSERT(is_bin(e, BINARY_OP_ADD));
+    ASSERT(is_bin(e->binary.left, BINARY_OP_MUL));
     ASSERT(is_int(e->binary.right, 3));
     ast_free(p);
 }
@@ -305,18 +305,18 @@ static void test_left_associativity(void)
 {
     ast_node_t* p = parse_ok("print(10 - 3 - 2);");
     ast_node_t* e = expr_of(p);
-    ASSERT(is_bin(e, BIN_SUB));
+    ASSERT(is_bin(e, BINARY_OP_SUB));
     ASSERT(is_int(e->binary.right, 2));
-    ASSERT(is_bin(e->binary.left, BIN_SUB));
+    ASSERT(is_bin(e->binary.left, BINARY_OP_SUB));
     ASSERT(is_int(e->binary.left->binary.left, 10));
     ASSERT(is_int(e->binary.left->binary.right, 3));
     ast_free(p);
 
     p = parse_ok("print(8 / 4 / 2);");
     e = expr_of(p);
-    ASSERT(is_bin(e, BIN_DIV));
+    ASSERT(is_bin(e, BINARY_OP_DIV));
     ASSERT(is_int(e->binary.right, 2));
-    ASSERT(is_bin(e->binary.left, BIN_DIV));
+    ASSERT(is_bin(e->binary.left, BINARY_OP_DIV));
     ASSERT(is_int(e->binary.left->binary.left, 8));
     ASSERT(is_int(e->binary.left->binary.right, 4));
     ast_free(p);
@@ -329,10 +329,10 @@ static void test_all_operators(void)
         const char* src;
         binary_op_t op;
     } cases[] = {
-        {"print(1 + 2);", BIN_ADD},
-        {"print(1 - 2);", BIN_SUB},
-        {"print(1 * 2);", BIN_MUL},
-        {"print(1 / 2);", BIN_DIV},
+        {"print(1 + 2);", BINARY_OP_ADD},
+        {"print(1 - 2);", BINARY_OP_SUB},
+        {"print(1 * 2);", BINARY_OP_MUL},
+        {"print(1 / 2);", BINARY_OP_DIV},
     };
 
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++)
@@ -350,8 +350,8 @@ static void test_parentheses(void)
 {
     ast_node_t* p = parse_ok("print((1 + 2) * 3);");
     ast_node_t* e = expr_of(p);
-    ASSERT(is_bin(e, BIN_MUL));
-    ASSERT(is_bin(e->binary.left, BIN_ADD));
+    ASSERT(is_bin(e, BINARY_OP_MUL));
+    ASSERT(is_bin(e->binary.left, BINARY_OP_ADD));
     ASSERT(is_int(e->binary.right, 3));
     ast_free(p);
 
@@ -361,9 +361,9 @@ static void test_parentheses(void)
 
     p = parse_ok("print(1 - (2 - 3));");
     e = expr_of(p);
-    ASSERT(is_bin(e, BIN_SUB));
+    ASSERT(is_bin(e, BINARY_OP_SUB));
     ASSERT(is_int(e->binary.left, 1));
-    ASSERT(is_bin(e->binary.right, BIN_SUB));
+    ASSERT(is_bin(e->binary.right, BINARY_OP_SUB));
     ast_free(p);
 }
 
@@ -373,7 +373,7 @@ static void test_binary_spans(void)
     ast_node_t* p   = parse_ok(src);
     ast_node_t* e   = expr_of(p);
 
-    ASSERT(is_bin(e, BIN_ADD));
+    ASSERT(is_bin(e, BINARY_OP_ADD));
     ASSERT(e->span.start == 6 && e->span.end == 14);
     ASSERT(e->binary.left->span.start == 6 && e->binary.left->span.end == 8);
     ASSERT(e->binary.right->span.start == 11 &&
@@ -405,7 +405,7 @@ static void test_unary_minus(void)
     p = parse_ok("print(-(1 + 2));");
     e = expr_of(p);
     ASSERT(is_neg(e));
-    ASSERT(is_bin(e->unary.operand, BIN_ADD));
+    ASSERT(is_bin(e->unary.operand, BINARY_OP_ADD));
     ast_free(p);
 }
 
@@ -413,7 +413,7 @@ static void test_unary_precedence(void)
 {
     ast_node_t* p = parse_ok("print(-2 * 3);");
     ast_node_t* e = expr_of(p);
-    ASSERT(is_bin(e, BIN_MUL));
+    ASSERT(is_bin(e, BINARY_OP_MUL));
     ASSERT(is_neg(e->binary.left));
     ASSERT(is_int(e->binary.left->unary.operand, 2));
     ASSERT(is_int(e->binary.right, 3));
@@ -421,7 +421,7 @@ static void test_unary_precedence(void)
 
     p = parse_ok("print(2 - -3);");
     e = expr_of(p);
-    ASSERT(is_bin(e, BIN_SUB));
+    ASSERT(is_bin(e, BINARY_OP_SUB));
     ASSERT(is_int(e->binary.left, 2));
     ASSERT(is_neg(e->binary.right));
     ASSERT(is_int(e->binary.right->unary.operand, 3));
@@ -429,7 +429,7 @@ static void test_unary_precedence(void)
 
     p = parse_ok("print(2 * -3);");
     e = expr_of(p);
-    ASSERT(is_bin(e, BIN_MUL));
+    ASSERT(is_bin(e, BINARY_OP_MUL));
     ASSERT(is_neg(e->binary.right));
     ast_free(p);
 }
@@ -485,13 +485,13 @@ static void test_int64_min_literal(void)
 
     p = parse_ok("print(1 - -9223372036854775808);");
     e = expr_of(p);
-    ASSERT(is_bin(e, BIN_SUB));
+    ASSERT(is_bin(e, BINARY_OP_SUB));
     ASSERT(is_int(e->binary.right, INT64_MIN));
     ast_free(p);
 
     p = parse_ok("print(-9223372036854775808 * 2);");
     e = expr_of(p);
-    ASSERT(is_bin(e, BIN_MUL));
+    ASSERT(is_bin(e, BINARY_OP_MUL));
     ASSERT(is_int(e->binary.left, INT64_MIN));
     ast_free(p);
 }
@@ -650,7 +650,7 @@ static void test_deep_nesting(void)
     p                 = parse_ok(buf);
     ast_node_t* e     = expr_of(p);
     int         depth = 0;
-    while (is_bin(e, BIN_ADD))
+    while (is_bin(e, BINARY_OP_ADD))
     {
         depth++;
         e = e->binary.left;
