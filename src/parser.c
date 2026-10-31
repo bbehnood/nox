@@ -501,14 +501,10 @@ static ast_node_t* parser_parse_print(parser_t* parser)
 static ast_node_t* parser_parse_statement(parser_t* parser)
 {
     if (parser_match(parser, TOKEN_LET))
-    {
         return parser_parse_let(parser);
-    }
 
     if (parser_match(parser, TOKEN_PRINT))
-    {
         return parser_parse_print(parser);
-    }
 
     parser_fail_expected(parser, "a statement ('let' or 'print')");
 

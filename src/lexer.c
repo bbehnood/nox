@@ -2,6 +2,18 @@
 
 #include <ctype.h>
 #include <stddef.h>
+#include <string.h>
+
+typedef struct keyword
+{
+    const char*  text;
+    token_type_t type;
+} keyword_t;
+
+static const keyword_t KEYWORDS[] = {
+    {"let", TOKEN_LET},
+    {"print", TOKEN_PRINT},
+};
 
 static bool lexer_at_end(const lexer_t* lexer)
 {
@@ -87,15 +99,13 @@ static token_type_t identifier_type(const source_t* source,
     size_t      length = end - start;
     const char* text   = source->data + start;
 
-    if (length == 3 && text[0] == 'l' && text[1] == 'e' && text[2] == 't')
+    for (size_t i = 0; i < sizeof(KEYWORDS) / sizeof(KEYWORDS[0]); i++)
     {
-        return TOKEN_LET;
-    }
+        const keyword_t* keyword = &KEYWORDS[i];
 
-    if (length == 5 && text[0] == 'p' && text[1] == 'r' && text[2] == 'i' &&
-        text[3] == 'n' && text[4] == 't')
-    {
-        return TOKEN_PRINT;
+        if (strlen(keyword->text) == length &&
+            memcmp(text, keyword->text, length) == 0)
+            return keyword->type;
     }
 
     return TOKEN_IDENTIFIER;
@@ -123,9 +133,7 @@ token_t lexer_next(lexer_t* lexer)
         lexer_advance(lexer);
 
         while (is_identifier_continue(lexer_peek(lexer)))
-        {
             lexer_advance(lexer);
-        }
 
         size_t end = lexer->position;
 
@@ -139,9 +147,7 @@ token_t lexer_next(lexer_t* lexer)
         lexer_advance(lexer);
 
         while (isdigit((unsigned char)lexer_peek(lexer)))
-        {
             lexer_advance(lexer);
-        }
 
         return make_token(TOKEN_INTEGER, start, lexer->position);
     }
