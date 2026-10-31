@@ -21,53 +21,6 @@ static constexpr int    SHELL_EXIT_COMMAND_MISSING = 127;
 static const char DEFAULT_COMPILER[]    = "cc";
 static const char DEFAULT_OUTPUT_PATH[] = "a.out";
 
-static char* read_file(const char* path, size_t* length)
-{
-    FILE* file = fopen(path, "rb");
-    if (!file)
-        return nullptr;
-
-    size_t capacity = READ_INITIAL_CAPACITY;
-    size_t size     = 0;
-    char*  data     = malloc(capacity);
-
-    while (data)
-    {
-        size += fread(data + size, 1, capacity - size - 1, file);
-
-        if (size < capacity - 1)
-            break;
-
-        char* grown = realloc(data, capacity * 2);
-        if (!grown)
-        {
-            free(data);
-            data = nullptr;
-            break;
-        }
-
-        data = grown;
-        capacity *= 2;
-    }
-
-    int failed = ferror(file);
-    fclose(file);
-
-    if (data && failed)
-    {
-        free(data);
-        return nullptr;
-    }
-
-    if (data)
-    {
-        data[size] = '\0';
-        *length    = size;
-    }
-
-    return data;
-}
-
 typedef struct options
 {
     const char* input;
@@ -116,6 +69,53 @@ static bool parse_args(int argc, char** argv, options_t* options)
     }
 
     return options->input != nullptr;
+}
+
+static char* read_file(const char* path, size_t* length)
+{
+    FILE* file = fopen(path, "rb");
+    if (!file)
+        return nullptr;
+
+    size_t capacity = READ_INITIAL_CAPACITY;
+    size_t size     = 0;
+    char*  data     = malloc(capacity);
+
+    while (data)
+    {
+        size += fread(data + size, 1, capacity - size - 1, file);
+
+        if (size < capacity - 1)
+            break;
+
+        char* grown = realloc(data, capacity * 2);
+        if (!grown)
+        {
+            free(data);
+            data = nullptr;
+            break;
+        }
+
+        data = grown;
+        capacity *= 2;
+    }
+
+    int failed = ferror(file);
+    fclose(file);
+
+    if (data && failed)
+    {
+        free(data);
+        return nullptr;
+    }
+
+    if (data)
+    {
+        data[size] = '\0';
+        *length    = size;
+    }
+
+    return data;
 }
 
 static char* shell_quote(const char* text)

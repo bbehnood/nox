@@ -5,6 +5,19 @@
 #include <stddef.h>
 #include <stdio.h>
 
+static int decimal_width(size_t n)
+{
+    int width = 1;
+
+    while (n >= 10)
+    {
+        n /= 10;
+        width++;
+    }
+
+    return width;
+}
+
 source_location_t source_locate(source_t source, size_t offset)
 {
     if (offset > source.length)
@@ -35,19 +48,6 @@ source_location_t source_locate(source_t source, size_t offset)
         .line_start = line_start,
         .line_end   = line_end,
     };
-}
-
-static int decimal_width(size_t n)
-{
-    int width = 1;
-
-    while (n >= 10)
-    {
-        n /= 10;
-        width++;
-    }
-
-    return width;
 }
 
 void diagnostic_print(FILE*               out,

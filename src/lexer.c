@@ -15,35 +15,6 @@ static const keyword_t KEYWORDS[] = {
     {"print", TOKEN_PRINT},
 };
 
-static bool lexer_at_end(const lexer_t* lexer)
-{
-    return lexer->position >= lexer->source.length;
-}
-
-static char lexer_peek(const lexer_t* lexer)
-{
-    if (lexer_at_end(lexer))
-        return '\0';
-
-    return lexer->source.data[lexer->position];
-}
-
-static char lexer_peek_next(const lexer_t* lexer)
-{
-    if (lexer->position + 1 >= lexer->source.length)
-        return '\0';
-
-    return lexer->source.data[lexer->position + 1];
-}
-
-static char lexer_advance(lexer_t* lexer)
-{
-    if (lexer_at_end(lexer))
-        return '\0';
-
-    return lexer->source.data[lexer->position++];
-}
-
 static bool is_identifier_start(char c)
 {
     return isalpha((unsigned char)c) || c == '_';
@@ -52,33 +23,6 @@ static bool is_identifier_start(char c)
 static bool is_identifier_continue(char c)
 {
     return isalnum((unsigned char)c) || c == '_';
-}
-
-static void lexer_skip_whitespace_and_comments(lexer_t* lexer)
-{
-    while (!lexer_at_end(lexer))
-    {
-        char c = lexer_peek(lexer);
-
-        if (isspace((unsigned char)c))
-        {
-            lexer_advance(lexer);
-            continue;
-        }
-
-        if (c == '/' && lexer_peek_next(lexer) == '/')
-        {
-            lexer_advance(lexer);
-            lexer_advance(lexer);
-
-            while (!lexer_at_end(lexer) && lexer_peek(lexer) != '\n')
-                lexer_advance(lexer);
-
-            continue;
-        }
-
-        break;
-    }
 }
 
 static token_t make_token(token_type_t type, size_t start, size_t end)
@@ -109,6 +53,62 @@ static token_type_t identifier_type(const source_t* source,
     }
 
     return TOKEN_IDENTIFIER;
+}
+
+static bool lexer_at_end(const lexer_t* lexer)
+{
+    return lexer->position >= lexer->source.length;
+}
+
+static char lexer_peek(const lexer_t* lexer)
+{
+    if (lexer_at_end(lexer))
+        return '\0';
+
+    return lexer->source.data[lexer->position];
+}
+
+static char lexer_peek_next(const lexer_t* lexer)
+{
+    if (lexer->position + 1 >= lexer->source.length)
+        return '\0';
+
+    return lexer->source.data[lexer->position + 1];
+}
+
+static char lexer_advance(lexer_t* lexer)
+{
+    if (lexer_at_end(lexer))
+        return '\0';
+
+    return lexer->source.data[lexer->position++];
+}
+
+static void lexer_skip_whitespace_and_comments(lexer_t* lexer)
+{
+    while (!lexer_at_end(lexer))
+    {
+        char c = lexer_peek(lexer);
+
+        if (isspace((unsigned char)c))
+        {
+            lexer_advance(lexer);
+            continue;
+        }
+
+        if (c == '/' && lexer_peek_next(lexer) == '/')
+        {
+            lexer_advance(lexer);
+            lexer_advance(lexer);
+
+            while (!lexer_at_end(lexer) && lexer_peek(lexer) != '\n')
+                lexer_advance(lexer);
+
+            continue;
+        }
+
+        break;
+    }
 }
 
 void lexer_init(lexer_t* lexer, source_t source)

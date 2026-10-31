@@ -7,6 +7,10 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#if !defined(__x86_64__) || !defined(__linux__)
+#error "nox currently targets x86-64 Linux only"
+#endif
+
 static constexpr size_t SLOT_SIZE       = 8;
 static constexpr size_t STACK_ALIGNMENT = 16;
 
@@ -139,9 +143,6 @@ static void codegen_node(codegen_t* codegen, const ast_node_t* node)
 
 bool codegen_emit(FILE* out, const ast_node_t* program, size_t slot_count)
 {
-#if !defined(__x86_64__) || !defined(__linux__)
-#error "nox currently targets x86-64 Linux only"
-#endif
     codegen_t codegen = {.out = out, .labels = 0};
 
     size_t frame_size = align_up(slot_count * SLOT_SIZE, STACK_ALIGNMENT);

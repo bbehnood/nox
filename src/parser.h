@@ -9,15 +9,15 @@
 
 typedef struct parser
 {
-    lexer_t lexer;
+    source_t source;
+    lexer_t  lexer;
 
     token_t current;
     token_t previous;
 
-    source_t source;
+    size_t depth;
 
     bool         failed;
-    size_t       depth;
     diagnostic_t diagnostic;
 } parser_t;
 

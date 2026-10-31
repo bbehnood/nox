@@ -9,24 +9,6 @@
 
 static constexpr size_t SEMA_INITIAL_SYMBOL_CAPACITY = 8;
 
-void sema_init(sema_t* sema, source_t source)
-{
-    *sema = (sema_t){.source = source};
-}
-
-void sema_free(sema_t* sema)
-{
-    free(sema->symbols);
-    sema->symbols         = nullptr;
-    sema->symbol_count    = 0;
-    sema->symbol_capacity = 0;
-}
-
-const diagnostic_t* sema_error(const sema_t* sema)
-{
-    return sema->failed ? &sema->diagnostic : nullptr;
-}
-
 [[gnu::format(printf, 3, 4)]]
 static void sema_report(sema_t*       sema,
                         source_span_t span,
@@ -131,10 +113,6 @@ static void sema_check_node(sema_t* sema, ast_node_t* node)
         sema_check_node(sema, node->unary.operand);
         break;
 
-    case AST_PRINT:
-        sema_check_node(sema, node->print.value);
-        break;
-
     case AST_LET:
         sema_check_node(sema, node->let.value);
         if (sema->failed)
@@ -153,6 +131,10 @@ static void sema_check_node(sema_t* sema, ast_node_t* node)
         sema_declare(sema, node->let.name, &node->slot);
         break;
 
+    case AST_PRINT:
+        sema_check_node(sema, node->print.value);
+        break;
+
     case AST_PROGRAM:
         for (size_t i = 0; i < node->program.count; i++)
             sema_check_node(sema, node->program.statements[i]);
@@ -160,8 +142,26 @@ static void sema_check_node(sema_t* sema, ast_node_t* node)
     }
 }
 
+void sema_init(sema_t* sema, source_t source)
+{
+    *sema = (sema_t){.source = source};
+}
+
 bool sema_check(sema_t* sema, ast_node_t* program)
 {
     sema_check_node(sema, program);
     return !sema->failed;
+}
+
+const diagnostic_t* sema_error(const sema_t* sema)
+{
+    return sema->failed ? &sema->diagnostic : nullptr;
+}
+
+void sema_free(sema_t* sema)
+{
+    free(sema->symbols);
+    sema->symbols         = nullptr;
+    sema->symbol_count    = 0;
+    sema->symbol_capacity = 0;
 }

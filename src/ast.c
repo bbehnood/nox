@@ -155,6 +155,10 @@ void ast_free(ast_node_t* node)
 
     switch (node->kind)
     {
+    case AST_INTEGER:
+    case AST_IDENTIFIER:
+        break;
+
     case AST_BINARY:
         ast_free(node->binary.left);
         ast_free(node->binary.right);
@@ -170,10 +174,6 @@ void ast_free(ast_node_t* node)
 
     case AST_PRINT:
         ast_free(node->print.value);
-        break;
-
-    case AST_INTEGER:
-    case AST_IDENTIFIER:
         break;
 
     case AST_PROGRAM:
