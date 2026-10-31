@@ -4,8 +4,6 @@
 #include <stddef.h>
 #include <string.h>
 
-#define SRC(s) ((source_t){.data = (s), .length = strlen(s)})
-
 static void expect_types(const char*         text,
                          const token_type_t* types,
                          size_t              count)

@@ -5,8 +5,6 @@
 
 #include <string.h>
 
-#define SRC(s) ((source_t){.data = (s), .length = strlen(s)})
-
 static ast_node_t* check(sema_t* sema, const char* text, bool* ok)
 {
     parser_t parser;

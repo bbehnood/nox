@@ -11,7 +11,7 @@
 static ast_node_t* parse(const char* text)
 {
     parser_t parser;
-    parser_init(&parser, (source_t){.data = text, .length = strlen(text)});
+    parser_init(&parser, SRC(text));
     return parser_parse(&parser);
 }
 
@@ -27,7 +27,7 @@ static ast_node_t* parse_ok(const char* text)
 static void expect_fail(const char* text)
 {
     parser_t parser;
-    parser_init(&parser, (source_t){.data = text, .length = strlen(text)});
+    parser_init(&parser, SRC(text));
 
     ast_node_t* program = parser_parse(&parser);
     if (program)
@@ -55,7 +55,7 @@ static void expect_diag(const char* text,
                         size_t      end)
 {
     parser_t parser;
-    parser_init(&parser, (source_t){.data = text, .length = strlen(text)});
+    parser_init(&parser, SRC(text));
 
     ast_node_t* program = parser_parse(&parser);
     ASSERT(program == nullptr);
@@ -663,7 +663,7 @@ static void test_valid_parse_has_no_error(void)
 {
     parser_t    parser;
     const char* text = "let x = 1;";
-    parser_init(&parser, (source_t){.data = text, .length = strlen(text)});
+    parser_init(&parser, SRC(text));
 
     ast_node_t* p = parser_parse(&parser);
     ASSERT(p != nullptr);
@@ -791,7 +791,7 @@ static void test_long_names_are_clipped_in_messages(void)
     text[41] = '\0';
 
     parser_t parser;
-    parser_init(&parser, (source_t){.data = text, .length = strlen(text)});
+    parser_init(&parser, SRC(text));
     ASSERT(parser_parse(&parser) == nullptr);
 
     const diagnostic_t* d = parser_error(&parser);
@@ -818,11 +818,11 @@ static void test_error_state_resets_on_init(void)
     const char* bad  = "let;";
     const char* good = "let x = 1;";
 
-    parser_init(&parser, (source_t){.data = bad, .length = strlen(bad)});
+    parser_init(&parser, SRC(bad));
     ASSERT(parser_parse(&parser) == nullptr);
     ASSERT(parser_error(&parser) != nullptr);
 
-    parser_init(&parser, (source_t){.data = good, .length = strlen(good)});
+    parser_init(&parser, SRC(good));
     ast_node_t* p = parser_parse(&parser);
     ASSERT(p != nullptr);
     ASSERT(parser_error(&parser) == nullptr);

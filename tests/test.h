@@ -1,7 +1,12 @@
 #ifndef TEST_H
 #define TEST_H
 
+#include "lexer.h"
+
 #include <stdio.h>
+#include <string.h>
+
+#define SRC(s) ((source_t){.data = (s), .length = strlen(s)})
 
 static int test_failures = 0;
 
