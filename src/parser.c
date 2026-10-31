@@ -15,11 +15,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DESCRIPTION_MAX     (96)
-#define MAX_NESTING         (256)
-#define MAX_CHAIN           (4096)
-#define TOKEN_TEXT_PREVIEW  (24)
-#define INT64_MIN_MAGNITUDE ((uint64_t)INT64_MAX + 1)
+static constexpr int      DESCRIPTION_MAX     = 96;
+static constexpr int      MAX_NESTING         = 256;
+static constexpr int      MAX_CHAIN           = 4096;
+static constexpr int      TOKEN_TEXT_PREVIEW  = 24;
+static constexpr uint64_t INT64_MIN_MAGNITUDE = (uint64_t)INT64_MAX + 1;
 
 static_assert(INT64_MIN_MAGNITUDE == UINT64_C(1) << 63);
 

@@ -7,11 +7,11 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define SLOT_SIZE (8)
-
-static_assert(SLOT_SIZE == sizeof(int64_t), "a slot must hold an int64_t");
+static constexpr size_t SLOT_SIZE = 8;
 
 #define DIV_ZERO_MESSAGE "nox: runtime error: division by zero\\n"
+
+static_assert(SLOT_SIZE == sizeof(int64_t), "a slot must hold an int64_t");
 
 typedef struct codegen
 {

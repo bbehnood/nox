@@ -6,7 +6,7 @@
 #include <stddef.h>
 #include <stdio.h>
 
-#define DIAGNOSTIC_MESSAGE_MAX (160)
+static constexpr int DIAGNOSTIC_MESSAGE_MAX = 160;
 
 typedef struct diagnostic
 {

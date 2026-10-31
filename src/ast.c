@@ -8,7 +8,7 @@
 #include <string.h>
 #include <sys/types.h>
 
-#define AST_PROGRAM_INITIAL_CAPACITY (8)
+static constexpr size_t AST_PROGRAM_INITIAL_CAPACITY = 8;
 
 static ast_node_t* ast_alloc(ast_kind_t kind)
 {
