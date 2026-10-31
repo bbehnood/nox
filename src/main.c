@@ -218,6 +218,61 @@ static bool emit_assembly(const ast_node_t* program,
     return emitted;
 }
 
+static bool emit_output(const options_t*  options,
+                        const ast_node_t* program,
+                        size_t            slot_count)
+{
+    if (options->emit_asm)
+        return emit_assembly(program, slot_count, options->output);
+
+    return emit_executable(program,
+                           slot_count,
+                           options->output ? options->output
+                                           : DEFAULT_OUTPUT_PATH);
+}
+
+static int compile(const options_t* options, source_t source)
+{
+    const char* path = options->input;
+
+    parser_t parser;
+    parser_init(&parser, source);
+
+    ast_node_t* program = parser_parse(&parser);
+    if (!program)
+    {
+        const diagnostic_t* error = parser_error(&parser);
+
+        if (error)
+            diagnostic_print(stderr, path, source, error);
+        else
+            fprintf(stderr, "%s: error: parsing failed\n", path);
+
+        return EXIT_FAILURE;
+    }
+
+    int status = EXIT_SUCCESS;
+
+    sema_t sema;
+    sema_init(&sema, source);
+
+    if (!sema_check(&sema, program))
+    {
+        diagnostic_print(stderr, path, source, sema_error(&sema));
+        status = EXIT_FAILURE;
+    }
+    else if (!emit_output(options, program, sema.slot_count))
+    {
+        fprintf(stderr, "%s: error: code generation failed\n", path);
+        status = EXIT_FAILURE;
+    }
+
+    sema_free(&sema);
+    ast_free(program);
+
+    return status;
+}
+
 int main(int argc, char** argv)
 {
     options_t options;
@@ -228,67 +283,17 @@ int main(int argc, char** argv)
         return EXIT_INVALID_INPUT;
     }
 
-    const char* path   = options.input;
-    size_t      length = 0;
-    char*       text   = read_file(path, &length);
+    size_t length = 0;
+    char*  text   = read_file(options.input, &length);
 
     if (!text)
     {
-        fprintf(stderr, "%s: error: cannot read file\n", path);
+        fprintf(stderr, "%s: error: cannot read file\n", options.input);
         return EXIT_INVALID_INPUT;
     }
 
-    source_t source = {.data = text, .length = length};
+    int status = compile(&options, (source_t){.data = text, .length = length});
 
-    parser_t parser;
-    parser_init(&parser, source);
-
-    ast_node_t* program = parser_parse(&parser);
-
-    int status = EXIT_SUCCESS;
-
-    if (!program)
-    {
-        const diagnostic_t* error = parser_error(&parser);
-
-        if (error)
-            diagnostic_print(stderr, path, source, error);
-        else
-            fprintf(stderr, "%s: error: parsing failed\n", path);
-
-        status = EXIT_FAILURE;
-    }
-    else
-    {
-        sema_t sema;
-        sema_init(&sema, source);
-
-        if (!sema_check(&sema, program))
-        {
-            diagnostic_print(stderr, path, source, sema_error(&sema));
-            status = EXIT_FAILURE;
-        }
-        else
-        {
-            bool ok =
-                options.emit_asm
-                    ? emit_assembly(program, sema.slot_count, options.output)
-                    : emit_executable(program,
-                                      sema.slot_count,
-                                      options.output ? options.output
-                                                     : DEFAULT_OUTPUT_PATH);
-
-            if (!ok)
-            {
-                fprintf(stderr, "%s: error: code generation failed\n", path);
-                status = EXIT_FAILURE;
-            }
-        }
-
-        sema_free(&sema);
-    }
-
-    ast_free(program);
     free(text);
 
     return status;
