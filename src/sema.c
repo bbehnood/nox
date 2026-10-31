@@ -15,9 +15,9 @@ void sema_init(sema_t* sema, source_t source)
 void sema_free(sema_t* sema)
 {
     free(sema->symbols);
-    sema->symbols  = nullptr;
-    sema->count    = 0;
-    sema->capacity = 0;
+    sema->symbols         = nullptr;
+    sema->symbol_count    = 0;
+    sema->symbol_capacity = 0;
 }
 
 const diagnostic_t* sema_error(const sema_t* sema)
@@ -26,7 +26,10 @@ const diagnostic_t* sema_error(const sema_t* sema)
 }
 
 [[gnu::format(printf, 3, 4)]]
-static void fail(sema_t* sema, source_span_t span, const char* fmt, ...)
+static void sema_report(sema_t*       sema,
+                        source_span_t span,
+                        const char*   format,
+                        ...)
 {
     if (sema->failed)
         return;
@@ -35,15 +38,15 @@ static void fail(sema_t* sema, source_span_t span, const char* fmt, ...)
     sema->diagnostic.span = span;
 
     va_list args;
-    va_start(args, fmt);
+    va_start(args, format);
     vsnprintf(sema->diagnostic.message,
               sizeof(sema->diagnostic.message),
-              fmt,
+              format,
               args);
     va_end(args);
 }
 
-static bool same_name(const sema_t* sema, source_span_t a, source_span_t b)
+static bool sema_same_name(const sema_t* sema, source_span_t a, source_span_t b)
 {
     size_t length = a.end - a.start;
 
@@ -52,42 +55,43 @@ static bool same_name(const sema_t* sema, source_span_t a, source_span_t b)
                                                length) == 0;
 }
 
-static const symbol_t* lookup(const sema_t* sema, source_span_t name)
+static const symbol_t* sema_lookup(const sema_t* sema, source_span_t name)
 {
-    for (size_t i = 0; i < sema->count; i++)
+    for (size_t i = 0; i < sema->symbol_count; i++)
     {
-        if (same_name(sema, sema->symbols[i].name, name))
+        if (sema_same_name(sema, sema->symbols[i].name, name))
             return &sema->symbols[i];
     }
 
     return nullptr;
 }
 
-static bool declare(sema_t* sema, source_span_t name, size_t* slot)
+static bool sema_declare(sema_t* sema, source_span_t name, size_t* slot)
 {
-    if (sema->count == sema->capacity)
+    if (sema->symbol_count == sema->symbol_capacity)
     {
-        size_t    capacity = sema->capacity ? sema->capacity * 2 : 8;
+        size_t capacity = sema->symbol_capacity ? sema->symbol_capacity * 2 : 8;
         symbol_t* grown =
             realloc(sema->symbols, capacity * sizeof(*sema->symbols));
 
         if (!grown)
         {
-            fail(sema, name, "out of memory");
+            sema_report(sema, name, "out of memory");
             return false;
         }
 
-        sema->symbols  = grown;
-        sema->capacity = capacity;
+        sema->symbols         = grown;
+        sema->symbol_capacity = capacity;
     }
 
     *slot = sema->slot_count++;
 
-    sema->symbols[sema->count++] = (symbol_t){.name = name, .slot = *slot};
+    sema->symbols[sema->symbol_count++] =
+        (symbol_t){.name = name, .slot = *slot};
     return true;
 }
 
-static void check_node(sema_t* sema, ast_node_t* node)
+static void sema_check_node(sema_t* sema, ast_node_t* node)
 {
     if (!node || sema->failed)
         return;
@@ -99,15 +103,15 @@ static void check_node(sema_t* sema, ast_node_t* node)
 
     case AST_IDENTIFIER:
     {
-        const symbol_t* symbol = lookup(sema, node->identifier);
+        const symbol_t* symbol = sema_lookup(sema, node->identifier);
 
         if (!symbol)
         {
-            fail(sema,
-                 node->span,
-                 "use of undeclared variable '%.*s'",
-                 (int)(node->identifier.end - node->identifier.start),
-                 sema->source.data + node->identifier.start);
+            sema_report(sema,
+                        node->span,
+                        "use of undeclared variable '%.*s'",
+                        (int)(node->identifier.end - node->identifier.start),
+                        sema->source.data + node->identifier.start);
             return;
         }
 
@@ -116,45 +120,45 @@ static void check_node(sema_t* sema, ast_node_t* node)
     }
 
     case AST_BINARY:
-        check_node(sema, node->binary.left);
-        check_node(sema, node->binary.right);
+        sema_check_node(sema, node->binary.left);
+        sema_check_node(sema, node->binary.right);
         break;
 
     case AST_UNARY:
-        check_node(sema, node->unary.operand);
+        sema_check_node(sema, node->unary.operand);
         break;
 
     case AST_PRINT:
-        check_node(sema, node->print.value);
+        sema_check_node(sema, node->print.value);
         break;
 
     case AST_LET:
-        check_node(sema, node->let.value);
+        sema_check_node(sema, node->let.value);
         if (sema->failed)
             return;
 
-        if (lookup(sema, node->let.name))
+        if (sema_lookup(sema, node->let.name))
         {
-            fail(sema,
-                 node->let.name,
-                 "variable '%.*s' is already declared",
-                 (int)(node->let.name.end - node->let.name.start),
-                 sema->source.data + node->let.name.start);
+            sema_report(sema,
+                        node->let.name,
+                        "variable '%.*s' is already declared",
+                        (int)(node->let.name.end - node->let.name.start),
+                        sema->source.data + node->let.name.start);
             return;
         }
 
-        declare(sema, node->let.name, &node->slot);
+        sema_declare(sema, node->let.name, &node->slot);
         break;
 
     case AST_PROGRAM:
         for (size_t i = 0; i < node->program.count; i++)
-            check_node(sema, node->program.statements[i]);
+            sema_check_node(sema, node->program.statements[i]);
         break;
     }
 }
 
 bool sema_check(sema_t* sema, ast_node_t* program)
 {
-    check_node(sema, program);
+    sema_check_node(sema, program);
     return !sema->failed;
 }

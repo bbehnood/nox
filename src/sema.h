@@ -18,8 +18,8 @@ typedef struct sema
     source_t source;
 
     symbol_t* symbols;
-    size_t    count;
-    size_t    capacity;
+    size_t    symbol_count;
+    size_t    symbol_capacity;
 
     size_t slot_count;
 

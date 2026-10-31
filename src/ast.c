@@ -36,7 +36,6 @@ ast_node_t* ast_integer(source_span_t span, int64_t value)
 ast_node_t* ast_identifier(source_span_t span)
 {
     ast_node_t* node = ast_alloc(AST_IDENTIFIER);
-
     if (!node)
         return nullptr;
 
@@ -87,8 +86,7 @@ ast_node_t* ast_unary(source_span_t span, unary_op_t op, ast_node_t* operand)
 ast_node_t* ast_let(source_span_t span, source_span_t name, ast_node_t* value)
 {
     ast_node_t* node = ast_alloc(AST_LET);
-
-    if (node == nullptr)
+    if (!node)
     {
         ast_free(value);
         return nullptr;
@@ -104,8 +102,7 @@ ast_node_t* ast_let(source_span_t span, source_span_t name, ast_node_t* value)
 ast_node_t* ast_print(source_span_t span, ast_node_t* value)
 {
     ast_node_t* node = ast_alloc(AST_PRINT);
-
-    if (node == nullptr)
+    if (!node)
     {
         ast_free(value);
         return nullptr;

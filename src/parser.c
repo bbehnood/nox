@@ -96,10 +96,10 @@ static const char* token_symbol(token_type_t type)
     return "token";
 }
 
-static void describe_token(const parser_t* parser,
-                           token_t         token,
-                           char*           out,
-                           size_t          size)
+static void parser_describe_token(const parser_t* parser,
+                                  token_t         token,
+                                  char*           out,
+                                  size_t          size)
 {
     size_t      length = token.span.end - token.span.start;
     const char* text   = parser->source.data + token.span.start;
@@ -151,7 +151,7 @@ static void parser_fail_expected(parser_t* parser, const char* expected)
     source_span_t span  = token.span;
     char          found[DESCRIPTION_MAX];
 
-    describe_token(parser, token, found, sizeof(found));
+    parser_describe_token(parser, token, found, sizeof(found));
 
     if (token.type == TOKEN_ERROR)
     {
@@ -206,9 +206,9 @@ static void parser_leave(parser_t* parser)
 }
 
 [[nodiscard]]
-static bool parse_magnitude(const parser_t* parser,
-                            token_t         token,
-                            uint64_t*       out)
+static bool parser_read_magnitude(const parser_t* parser,
+                                  token_t         token,
+                                  uint64_t*       out)
 {
     uint64_t value = 0;
 
@@ -233,7 +233,7 @@ static ast_node_t* parser_parse_integer(parser_t* parser,
     uint64_t magnitude;
     uint64_t limit = negated ? INT64_MIN_MAGNITUDE : (uint64_t)INT64_MAX;
 
-    if (!parse_magnitude(parser, token, &magnitude) || magnitude > limit)
+    if (!parser_read_magnitude(parser, token, &magnitude) || magnitude > limit)
     {
         parser_report(parser,
                       token.span,
@@ -293,7 +293,7 @@ static ast_node_t* parser_parse_unary(parser_t* parser)
             token_t  literal = parser->current;
             uint64_t magnitude;
 
-            if (parse_magnitude(parser, literal, &magnitude) &&
+            if (parser_read_magnitude(parser, literal, &magnitude) &&
                 magnitude == INT64_MIN_MAGNITUDE)
             {
                 parser_advance(parser);

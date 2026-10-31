@@ -42,7 +42,7 @@ static bool is_identifier_continue(char c)
     return isalnum((unsigned char)c) || c == '_';
 }
 
-static void lexer_skip_whitespaces(lexer_t* lexer)
+static void lexer_skip_whitespace_and_comments(lexer_t* lexer)
 {
     while (!lexer_at_end(lexer))
     {
@@ -109,7 +109,7 @@ void lexer_init(lexer_t* lexer, source_t source)
 
 token_t lexer_next(lexer_t* lexer)
 {
-    lexer_skip_whitespaces(lexer);
+    lexer_skip_whitespace_and_comments(lexer);
 
     size_t start = lexer->position;
 

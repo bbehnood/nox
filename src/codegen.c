@@ -24,13 +24,13 @@ static size_t slot_offset(size_t slot)
     return (slot + 1) * SLOT_SIZE;
 }
 
-static void gen_node(codegen_t* gen, const ast_node_t* node);
+static void codegen_node(codegen_t* codegen, const ast_node_t* node);
 
-static void gen_division(codegen_t* gen)
+static void codegen_division(codegen_t* codegen)
 {
-    unsigned label = gen->labels++;
+    unsigned label = codegen->labels++;
 
-    fprintf(gen->out,
+    fprintf(codegen->out,
             "    test rcx, rcx\n"
             "    jz .Ldiv_zero\n"
             "    cmp rcx, -1\n"
@@ -47,75 +47,75 @@ static void gen_division(codegen_t* gen)
             label);
 }
 
-static void gen_binary(codegen_t* gen, const ast_node_t* node)
+static void codegen_binary(codegen_t* codegen, const ast_node_t* node)
 {
-    gen_node(gen, node->binary.left);
-    fprintf(gen->out, "    push rax\n");
+    codegen_node(codegen, node->binary.left);
+    fprintf(codegen->out, "    push rax\n");
 
-    gen_node(gen, node->binary.right);
-    fprintf(gen->out,
+    codegen_node(codegen, node->binary.right);
+    fprintf(codegen->out,
             "    mov rcx, rax\n"
             "    pop rax\n");
 
     switch (node->binary.op)
     {
     case BINARY_OP_ADD:
-        fprintf(gen->out, "    add rax, rcx\n");
+        fprintf(codegen->out, "    add rax, rcx\n");
         break;
 
     case BINARY_OP_SUB:
-        fprintf(gen->out, "    sub rax, rcx\n");
+        fprintf(codegen->out, "    sub rax, rcx\n");
         break;
 
     case BINARY_OP_MUL:
-        fprintf(gen->out, "    imul rax, rcx\n");
+        fprintf(codegen->out, "    imul rax, rcx\n");
         break;
 
     case BINARY_OP_DIV:
-        gen_division(gen);
+        codegen_division(codegen);
         break;
     }
 }
 
-static void gen_node(codegen_t* gen, const ast_node_t* node)
+static void codegen_node(codegen_t* codegen, const ast_node_t* node)
 {
     switch (node->kind)
     {
     case AST_INTEGER:
-        fprintf(gen->out, "    mov rax, %" PRId64 "\n", node->integer);
+        fprintf(codegen->out, "    mov rax, %" PRId64 "\n", node->integer);
         break;
 
     case AST_IDENTIFIER:
-        fprintf(gen->out,
+        fprintf(codegen->out,
                 "    mov rax, [rbp - %zu]\n",
                 slot_offset(node->slot));
         break;
 
     case AST_BINARY:
-        gen_binary(gen, node);
+        codegen_binary(codegen, node);
         break;
 
     case AST_UNARY:
-        gen_node(gen, node->unary.operand);
+        codegen_node(codegen, node->unary.operand);
 
         switch (node->unary.op)
         {
         case UNARY_OP_NEG:
-            fprintf(gen->out, "    neg rax\n");
+            fprintf(codegen->out, "    neg rax\n");
             break;
         }
         break;
 
     case AST_LET:
-        gen_node(gen, node->let.value);
-        fprintf(gen->out,
+        codegen_node(codegen, node->let.value);
+        fprintf(codegen->out,
                 "    mov [rbp - %zu], rax\n",
                 slot_offset(node->slot));
         break;
 
     case AST_PRINT:
-        gen_node(gen, node->print.value);
-        fprintf(gen->out,
+        codegen_node(codegen, node->print.value);
+        fprintf(codegen->out,
                 "    mov rsi, rax\n"
                 "    lea rdi, [rip + .Lfmt]\n"
                 "    xor eax, eax\n"
@@ -124,7 +124,7 @@ static void gen_node(codegen_t* gen, const ast_node_t* node)
 
     case AST_PROGRAM:
         for (size_t i = 0; i < node->program.count; i++)
-            gen_node(gen, node->program.statements[i]);
+            codegen_node(codegen, node->program.statements[i]);
         break;
     }
 }
@@ -134,7 +134,7 @@ bool codegen_emit(FILE* out, const ast_node_t* program, size_t slot_count)
 #if !defined(__x86_64__) || !defined(__linux__)
 #error "nox currently targets x86-64 Linux only"
 #endif
-    codegen_t gen = {.out = out, .labels = 0};
+    codegen_t codegen = {.out = out, .labels = 0};
 
     size_t frame = (slot_count * SLOT_SIZE + 15) & ~(size_t)15;
 
@@ -157,7 +157,7 @@ bool codegen_emit(FILE* out, const ast_node_t* program, size_t slot_count)
     if (frame > 0)
         fprintf(out, "    sub rsp, %zu\n", frame);
 
-    gen_node(&gen, program);
+    codegen_node(&codegen, program);
 
     fprintf(out,
             "    xor eax, eax\n"

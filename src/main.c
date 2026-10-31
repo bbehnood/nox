@@ -67,7 +67,7 @@ typedef struct options
     bool        emit_asm;
 } options_t;
 
-static void usage(const char* program)
+static void print_usage(const char* program)
 {
     fprintf(stderr,
             "usage: %s [-S] [-o <output>] <file>\n"
@@ -215,7 +215,7 @@ int main(int argc, char** argv)
 
     if (!parse_args(argc, argv, &options))
     {
-        usage(argc > 0 ? argv[0] : "nox");
+        print_usage(argc > 0 ? argv[0] : "nox");
         return 2;
     }
 
