@@ -29,12 +29,12 @@ add_project_arguments(
 nox_lib = static_library(
   'nox_core',
   files(
-    'src/lexer.c',
     'src/ast.c',
-    'src/parser.c',
-    'src/sema.c',
     'src/codegen.c',
     'src/diagnostic.c',
+    'src/lexer.c',
+    'src/parser.c',
+    'src/sema.c',
   ),
   include_directories: include_directories('src'),
 )
