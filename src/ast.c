@@ -5,8 +5,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
 
 static constexpr size_t AST_PROGRAM_INITIAL_CAPACITY = 8;
 

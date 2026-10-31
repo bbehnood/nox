@@ -5,15 +5,11 @@
 #include "lexer.h"
 
 #include <ctype.h>
-#include <errno.h>
 #include <inttypes.h>
-#include <limits.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 static constexpr int      DESCRIPTION_MAX     = 96;
 static constexpr int      MAX_NESTING         = 256;

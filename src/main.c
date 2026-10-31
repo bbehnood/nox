@@ -2,6 +2,8 @@
 
 #include "ast.h"
 #include "codegen.h"
+#include "diagnostic.h"
+#include "lexer.h"
 #include "parser.h"
 #include "sema.h"
 
