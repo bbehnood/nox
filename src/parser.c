@@ -11,13 +11,13 @@
 #include <stdint.h>
 #include <stdio.h>
 
-static constexpr int      DESCRIPTION_MAX     = 96;
-static constexpr int      MAX_NESTING         = 256;
-static constexpr int      MAX_CHAIN           = 4096;
-static constexpr int      TOKEN_TEXT_PREVIEW  = 24;
-static constexpr uint64_t INT64_MIN_MAGNITUDE = (uint64_t)INT64_MAX + 1;
+static constexpr size_t   PARSER_DESCRIPTION_MAX      = 96;
+static constexpr size_t   PARSER_MAX_NESTING          = 256;
+static constexpr size_t   PARSER_MAX_CHAIN            = 4096;
+static constexpr size_t   PARSER_TOKEN_PREVIEW_LENGTH = 24;
+static constexpr uint64_t PARSER_INT64_MIN_MAGNITUDE  = (uint64_t)INT64_MAX + 1;
 
-static_assert(INT64_MIN_MAGNITUDE == UINT64_C(1) << 63);
+static_assert(PARSER_INT64_MIN_MAGNITUDE == UINT64_C(1) << 63);
 
 static ast_node_t* parser_parse_expression(parser_t* parser);
 
@@ -126,8 +126,8 @@ static void parser_describe_token(const parser_t* parser,
     {
         const char* kind =
             token.type == TOKEN_IDENTIFIER ? "identifier" : "number";
-        bool clipped = length > TOKEN_TEXT_PREVIEW;
-        int  shown   = (int)(clipped ? TOKEN_TEXT_PREVIEW : length);
+        bool clipped = length > PARSER_TOKEN_PREVIEW_LENGTH;
+        int  shown   = (int)(clipped ? PARSER_TOKEN_PREVIEW_LENGTH : length);
 
         snprintf(out,
                  size,
@@ -149,7 +149,7 @@ static void parser_fail_expected(parser_t* parser, const char* expected)
 {
     token_t       token = parser->current;
     source_span_t span  = token.span;
-    char          found[DESCRIPTION_MAX];
+    char          found[PARSER_DESCRIPTION_MAX];
 
     parser_describe_token(parser, token, found, sizeof(found));
 
@@ -186,12 +186,12 @@ static bool parser_expect(parser_t*    parser,
 [[nodiscard]]
 static bool parser_enter(parser_t* parser)
 {
-    if (parser->depth >= MAX_NESTING)
+    if (parser->depth >= PARSER_MAX_NESTING)
     {
         parser_report(parser,
                       parser->current.span,
-                      "expression is nested too deeply (limit is %d)",
-                      MAX_NESTING);
+                      "expression is nested too deeply (limit is %zu)",
+                      PARSER_MAX_NESTING);
 
         return false;
     }
@@ -231,7 +231,7 @@ static ast_node_t* parser_parse_integer(parser_t* parser,
                                         bool      negated)
 {
     uint64_t magnitude;
-    uint64_t limit = negated ? INT64_MIN_MAGNITUDE : (uint64_t)INT64_MAX;
+    uint64_t limit = negated ? PARSER_INT64_MIN_MAGNITUDE : (uint64_t)INT64_MAX;
 
     if (!parser_read_magnitude(parser, token, &magnitude) || magnitude > limit)
     {
@@ -242,8 +242,9 @@ static ast_node_t* parser_parse_integer(parser_t* parser,
         return nullptr;
     }
 
-    int64_t value =
-        magnitude == INT64_MIN_MAGNITUDE ? INT64_MIN : (int64_t)magnitude;
+    int64_t value = magnitude == PARSER_INT64_MIN_MAGNITUDE
+                        ? INT64_MIN
+                        : (int64_t)magnitude;
 
     return ast_integer(token.span, value);
 }
@@ -294,7 +295,7 @@ static ast_node_t* parser_parse_unary(parser_t* parser)
             uint64_t magnitude;
 
             if (parser_read_magnitude(parser, literal, &magnitude) &&
-                magnitude == INT64_MIN_MAGNITUDE)
+                magnitude == PARSER_INT64_MIN_MAGNITUDE)
             {
                 parser_advance(parser);
 
@@ -339,12 +340,12 @@ static ast_node_t* parser_parse_multiplicative(parser_t* parser)
         else
             break;
 
-        if (++chain > MAX_CHAIN)
+        if (++chain > PARSER_MAX_CHAIN)
         {
             parser_report(parser,
                           parser->previous.span,
-                          "too many chained operators (limit is %d)",
-                          MAX_CHAIN);
+                          "too many chained operators (limit is %zu)",
+                          PARSER_MAX_CHAIN);
 
             ast_free(left);
             return nullptr;
@@ -391,12 +392,12 @@ static ast_node_t* parser_parse_additive(parser_t* parser)
         else
             break;
 
-        if (++chain > MAX_CHAIN)
+        if (++chain > PARSER_MAX_CHAIN)
         {
             parser_report(parser,
                           parser->previous.span,
-                          "too many chained operators (limit is %d)",
-                          MAX_CHAIN);
+                          "too many chained operators (limit is %zu)",
+                          PARSER_MAX_CHAIN);
 
             ast_free(left);
             return nullptr;

@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+static constexpr size_t SEMA_INITIAL_SYMBOL_CAPACITY = 8;
+
 void sema_init(sema_t* sema, source_t source)
 {
     *sema = (sema_t){.source = source};
@@ -70,7 +72,8 @@ static bool sema_declare(sema_t* sema, source_span_t name, size_t* slot)
 {
     if (sema->symbol_count == sema->symbol_capacity)
     {
-        size_t capacity = sema->symbol_capacity ? sema->symbol_capacity * 2 : 8;
+        size_t capacity = sema->symbol_capacity ? sema->symbol_capacity * 2
+                                                : SEMA_INITIAL_SYMBOL_CAPACITY;
         symbol_t* grown =
             realloc(sema->symbols, capacity * sizeof(*sema->symbols));
 

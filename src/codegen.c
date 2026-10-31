@@ -7,17 +7,25 @@
 #include <stdint.h>
 #include <stdio.h>
 
-static constexpr size_t SLOT_SIZE = 8;
+static constexpr size_t SLOT_SIZE       = 8;
+static constexpr size_t STACK_ALIGNMENT = 16;
 
 #define DIV_ZERO_MESSAGE "nox: runtime error: division by zero\\n"
 
 static_assert(SLOT_SIZE == sizeof(int64_t), "a slot must hold an int64_t");
+static_assert((STACK_ALIGNMENT & (STACK_ALIGNMENT - 1)) == 0,
+              "the stack alignment must be a power of two");
 
 typedef struct codegen
 {
     FILE*    out;
     unsigned labels;
 } codegen_t;
+
+static size_t align_up(size_t value, size_t alignment)
+{
+    return (value + alignment - 1) & ~(alignment - 1);
+}
 
 static size_t slot_offset(size_t slot)
 {
@@ -136,7 +144,7 @@ bool codegen_emit(FILE* out, const ast_node_t* program, size_t slot_count)
 #endif
     codegen_t codegen = {.out = out, .labels = 0};
 
-    size_t frame = (slot_count * SLOT_SIZE + 15) & ~(size_t)15;
+    size_t frame_size = align_up(slot_count * SLOT_SIZE, STACK_ALIGNMENT);
 
     fprintf(out,
             "    .intel_syntax noprefix\n"
@@ -154,8 +162,8 @@ bool codegen_emit(FILE* out, const ast_node_t* program, size_t slot_count)
             "    push rbp\n"
             "    mov rbp, rsp\n");
 
-    if (frame > 0)
-        fprintf(out, "    sub rsp, %zu\n", frame);
+    if (frame_size > 0)
+        fprintf(out, "    sub rsp, %zu\n", frame_size);
 
     codegen_node(&codegen, program);
 

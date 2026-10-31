@@ -13,13 +13,21 @@
 #include <string.h>
 #include <sys/wait.h>
 
+static constexpr size_t READ_INITIAL_CAPACITY      = 4096;
+static constexpr size_t COMMAND_RESERVED_LENGTH    = 32;
+static constexpr int    EXIT_INVALID_INPUT         = 2;
+static constexpr int    SHELL_EXIT_COMMAND_MISSING = 127;
+
+static const char DEFAULT_COMPILER[]    = "cc";
+static const char DEFAULT_OUTPUT_PATH[] = "a.out";
+
 static char* read_file(const char* path, size_t* length)
 {
     FILE* file = fopen(path, "rb");
     if (!file)
         return nullptr;
 
-    size_t capacity = 4096;
+    size_t capacity = READ_INITIAL_CAPACITY;
     size_t size     = 0;
     char*  data     = malloc(capacity);
 
@@ -149,13 +157,13 @@ static bool emit_executable(const ast_node_t* program,
 {
     const char* cc = getenv("CC");
     if (!cc || !*cc)
-        cc = "cc";
+        cc = DEFAULT_COMPILER;
 
     char* quoted = shell_quote(output);
     if (!quoted)
         return false;
 
-    size_t size    = strlen(cc) + strlen(quoted) + 32;
+    size_t size    = strlen(cc) + strlen(quoted) + COMMAND_RESERVED_LENGTH;
     char*  command = malloc(size);
 
     if (!command)
@@ -183,7 +191,8 @@ static bool emit_executable(const ast_node_t* program,
 
     if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
     {
-        if (WIFEXITED(status) && WEXITSTATUS(status) == 127)
+        if (WIFEXITED(status) &&
+            WEXITSTATUS(status) == SHELL_EXIT_COMMAND_MISSING)
             fprintf(stderr, "nox: error: could not run C compiler '%s'\n", cc);
         else
             fprintf(stderr, "nox: error: C compiler '%s' failed\n", cc);
@@ -216,7 +225,7 @@ int main(int argc, char** argv)
     if (!parse_args(argc, argv, &options))
     {
         print_usage(argc > 0 ? argv[0] : "nox");
-        return 2;
+        return EXIT_INVALID_INPUT;
     }
 
     const char* path   = options.input;
@@ -226,7 +235,7 @@ int main(int argc, char** argv)
     if (!text)
     {
         fprintf(stderr, "%s: error: cannot read file\n", path);
-        return 2;
+        return EXIT_INVALID_INPUT;
     }
 
     source_t source = {.data = text, .length = length};
@@ -236,7 +245,7 @@ int main(int argc, char** argv)
 
     ast_node_t* program = parser_parse(&parser);
 
-    int status = 0;
+    int status = EXIT_SUCCESS;
 
     if (!program)
     {
@@ -247,7 +256,7 @@ int main(int argc, char** argv)
         else
             fprintf(stderr, "%s: error: parsing failed\n", path);
 
-        status = 1;
+        status = EXIT_FAILURE;
     }
     else
     {
@@ -257,7 +266,7 @@ int main(int argc, char** argv)
         if (!sema_check(&sema, program))
         {
             diagnostic_print(stderr, path, source, sema_error(&sema));
-            status = 1;
+            status = EXIT_FAILURE;
         }
         else
         {
@@ -267,12 +276,12 @@ int main(int argc, char** argv)
                     : emit_executable(program,
                                       sema.slot_count,
                                       options.output ? options.output
-                                                     : "a.out");
+                                                     : DEFAULT_OUTPUT_PATH);
 
             if (!ok)
             {
                 fprintf(stderr, "%s: error: code generation failed\n", path);
-                status = 1;
+                status = EXIT_FAILURE;
             }
         }
 
