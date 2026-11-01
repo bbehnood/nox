@@ -38,6 +38,11 @@ static size_t slot_offset(size_t slot)
 
 static void codegen_node(codegen_t* codegen, const ast_node_t* node);
 
+static void codegen_store(codegen_t* codegen, size_t slot)
+{
+    fprintf(codegen->out, "    mov [rbp - %zu], rax\n", slot_offset(slot));
+}
+
 static void codegen_division(codegen_t* codegen)
 {
     unsigned label = codegen->labels++;
@@ -120,9 +125,12 @@ static void codegen_node(codegen_t* codegen, const ast_node_t* node)
 
     case AST_LET:
         codegen_node(codegen, node->let.value);
-        fprintf(codegen->out,
-                "    mov [rbp - %zu], rax\n",
-                slot_offset(node->slot));
+        codegen_store(codegen, node->slot);
+        break;
+
+    case AST_ASSIGN:
+        codegen_node(codegen, node->assign.value);
+        codegen_store(codegen, node->slot);
         break;
 
     case AST_PRINT:
