@@ -465,6 +465,31 @@ static ast_node_t* parser_parse_let(parser_t* parser)
     return ast_let(span, name.span, value);
 }
 
+static ast_node_t* parser_parse_assign(parser_t* parser)
+{
+    token_t name = parser->previous;
+
+    if (!parser_expect(parser, TOKEN_EQUALS, "'=' after the variable name"))
+        return nullptr;
+
+    ast_node_t* value = parser_parse_expression(parser);
+    if (!value)
+        return nullptr;
+
+    if (!parser_expect(parser, TOKEN_SEMICOLON, "';' after the assignment"))
+    {
+        ast_free(value);
+        return nullptr;
+    }
+
+    source_span_t span = {
+        .start = name.span.start,
+        .end   = parser->previous.span.end,
+    };
+
+    return ast_assign(span, name.span, value);
+}
+
 static ast_node_t* parser_parse_print(parser_t* parser)
 {
     size_t start = parser->previous.span.start;
@@ -502,6 +527,9 @@ static ast_node_t* parser_parse_statement(parser_t* parser)
 {
     if (parser_match(parser, TOKEN_LET))
         return parser_parse_let(parser);
+
+    if (parser_match(parser, TOKEN_IDENTIFIER))
+        return parser_parse_assign(parser);
 
     if (parser_match(parser, TOKEN_PRINT))
         return parser_parse_print(parser);

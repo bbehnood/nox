@@ -15,6 +15,7 @@ typedef enum ast_kind
     AST_UNARY,
 
     AST_LET,
+    AST_ASSIGN,
     AST_PRINT,
 
     AST_PROGRAM,
@@ -66,6 +67,12 @@ typedef struct ast_node
 
         struct
         {
+            source_span_t    name;
+            struct ast_node* value;
+        } assign;
+
+        struct
+        {
             struct ast_node* value;
         } print;
 
@@ -95,6 +102,11 @@ ast_node_t* ast_unary(source_span_t span, unary_op_t op, ast_node_t* operand);
 
 [[nodiscard]]
 ast_node_t* ast_let(source_span_t span, source_span_t name, ast_node_t* value);
+
+[[nodiscard]]
+ast_node_t* ast_assign(source_span_t span,
+                       source_span_t name,
+                       ast_node_t*   value);
 
 [[nodiscard]]
 ast_node_t* ast_print(source_span_t span, ast_node_t* value);

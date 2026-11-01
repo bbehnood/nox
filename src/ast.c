@@ -99,6 +99,24 @@ ast_node_t* ast_let(source_span_t span, source_span_t name, ast_node_t* value)
     return node;
 }
 
+ast_node_t* ast_assign(source_span_t span,
+                       source_span_t name,
+                       ast_node_t*   value)
+{
+    ast_node_t* node = ast_alloc(AST_ASSIGN);
+    if (!node)
+    {
+        ast_free(value);
+        return nullptr;
+    }
+
+    node->span         = span;
+    node->assign.name  = name;
+    node->assign.value = value;
+
+    return node;
+}
+
 ast_node_t* ast_print(source_span_t span, ast_node_t* value)
 {
     ast_node_t* node = ast_alloc(AST_PRINT);
@@ -170,6 +188,10 @@ void ast_free(ast_node_t* node)
 
     case AST_LET:
         ast_free(node->let.value);
+        break;
+
+    case AST_ASSIGN:
+        ast_free(node->assign.value);
         break;
 
     case AST_PRINT:

@@ -130,6 +130,12 @@ static void test_ast_constructors(void)
     ASSERT(l && l->kind == AST_LET && l->let.value == b);
     ASSERT(l->let.name.start == 0 && l->let.name.end == 1);
 
+    ast_node_t* a =
+        ast_assign(sp, (source_span_t){.start = 0, .end = 1}, nullptr);
+    ASSERT(a && a->kind == AST_ASSIGN && a->assign.value == nullptr);
+    ASSERT(a->assign.name.start == 0 && a->assign.name.end == 1);
+    ASSERT(a->span.start == 3 && a->span.end == 5);
+
     ast_node_t* p = ast_print(sp, ast_integer(sp, 1));
     ASSERT(p && p->kind == AST_PRINT && is_int(p->print.value, 1));
 
@@ -140,6 +146,7 @@ static void test_ast_constructors(void)
     ast_free(u);
 
     ast_free(l);
+    ast_free(a);
     ast_free(p);
 }
 
@@ -226,6 +233,72 @@ static void test_statement_spans_in_sequence(void)
     ASSERT(st[0]->span.start == 0 && st[0]->span.end == 10);
     ASSERT(st[1]->span.start == 11 && st[1]->span.end == 20);
     ASSERT(st[2]->span.start == 21 && st[2]->span.end == 31);
+
+    ast_free(p);
+}
+
+static void test_assign_statement(void)
+{
+    const char* src = "x = 5;";
+    ast_node_t* p   = parse_ok(src);
+
+    ASSERT(p && p->program.count == 1);
+
+    ast_node_t* s = p->program.statements[0];
+    ASSERT(s->kind == AST_ASSIGN);
+    ASSERT(s->assign.name.start == 0 && s->assign.name.end == 1);
+    ASSERT(is_int(s->assign.value, 5));
+    ASSERT(s->span.start == 0 && s->span.end == strlen(src));
+
+    ast_free(p);
+}
+
+static void test_assign_span_with_leading_text(void)
+{
+    const char* src = "  // c\n  foo   = 1 + 2 ;";
+    ast_node_t* p   = parse_ok(src);
+
+    ASSERT(p && p->program.count == 1);
+    ast_node_t* s = p->program.statements[0];
+    ASSERT(s->kind == AST_ASSIGN);
+    ASSERT(s->span.start == 9);
+    ASSERT(s->span.end == strlen(src));
+    ASSERT(s->assign.name.start == 9 && s->assign.name.end == 12);
+
+    ast_free(p);
+}
+
+static void test_assign_value_is_full_expression(void)
+{
+    ast_node_t* p = parse_ok("x = 1 + 2 * 3;");
+
+    ASSERT(p && p->program.count == 1);
+    ast_node_t* s = p->program.statements[0];
+    ASSERT(s->kind == AST_ASSIGN);
+    ASSERT(is_bin(s->assign.value, BINARY_OP_ADD));
+    ASSERT(is_int(s->assign.value->binary.left, 1));
+    ASSERT(is_bin(s->assign.value->binary.right, BINARY_OP_MUL));
+
+    ast_free(p);
+}
+
+static void test_assign_does_not_chain(void)
+{
+    expect_fail("x = y = 1;");
+    expect_fail("x = 1 = 2;");
+}
+
+static void test_assign_in_sequence(void)
+{
+    ast_node_t* p = parse_ok("let a = 1; a = 2; print(a);");
+
+    ASSERT(p && p->program.count == 3);
+    ast_node_t** st = p->program.statements;
+    ASSERT(st[0]->kind == AST_LET);
+    ASSERT(st[1]->kind == AST_ASSIGN);
+    ASSERT(st[2]->kind == AST_PRINT);
+    ASSERT(st[1]->span.start == 11 && st[1]->span.end == 17);
+    ASSERT(st[2]->span.start == 18 && st[2]->span.end == 27);
 
     ast_free(p);
 }
@@ -555,7 +628,6 @@ static void test_keywords_not_identifiers(void)
 static void test_syntax_errors(void)
 {
     expect_fail("1;");
-    expect_fail("x = 1;");
     expect_fail(";");
     expect_fail("let");
     expect_fail("let x");
@@ -572,6 +644,15 @@ static void test_syntax_errors(void)
     expect_fail("print(1)");
     expect_fail("print(1;");
     expect_fail("print 1;");
+    expect_fail("x");
+    expect_fail("x;");
+    expect_fail("x =");
+    expect_fail("x = ;");
+    expect_fail("x = 1");
+    expect_fail("x 1;");
+    expect_fail("1 = 2;");
+    expect_fail("= 1;");
+    expect_fail("print(x) = 1;");
 
     expect_fail("print(1 +);");
     expect_fail("print(+ 1);");
@@ -601,6 +682,8 @@ static void test_partial_failure_frees_earlier_statements(void)
 {
     expect_fail("let a = 1; let b = 2; print(a + b); let = ;");
     expect_fail("let a = (1 + 2) * 3; print(a +");
+    expect_fail("let a = 1; a = 2; a = (1 + ;");
+    expect_fail("let a = 1; a = 1 + 2");
 }
 
 static void test_integer_literal_errors(void)
@@ -673,9 +756,22 @@ static void test_valid_parse_has_no_error(void)
 
 static void test_diagnostic_messages(void)
 {
-    expect_diag("x = 1;", "expected a statement, found identifier 'x'", 0, 1);
     expect_diag("1;", "expected a statement, found number '1'", 0, 1);
     expect_diag(";", "expected a statement, found ';'", 0, 1);
+    expect_diag("x;", "expected '=' after the variable name, found ';'", 1, 2);
+    expect_diag("x",
+                "expected '=' after the variable name, found end of input",
+                1,
+                1);
+    expect_diag("x = ;", "expected an expression, found ';'", 4, 5);
+    expect_diag("x = 1",
+                "expected ';' after the assignment, found end of input",
+                5,
+                5);
+    expect_diag("x = 1 2;",
+                "expected ';' after the assignment, found number '2'",
+                6,
+                7);
     expect_diag("let = 1;",
                 "expected a variable name after 'let', found '='",
                 4,
@@ -780,10 +876,10 @@ static void test_integer_diagnostics(void)
 
 static void test_long_names_are_clipped_in_messages(void)
 {
-    char text[64];
-    memset(text, 'a', 40);
-    text[40] = ';';
-    text[41] = '\0';
+    char text[64] = "print ";
+    memset(text + 6, 'a', 40);
+    text[46] = ';';
+    text[47] = '\0';
 
     parser_t parser;
     parser_init(&parser, SRC(text));
@@ -795,7 +891,7 @@ static void test_long_names_are_clipped_in_messages(void)
     {
         ASSERT(strstr(d->message, "identifier 'aaaaaaaaaaaaaaaaaaaaaaaa...'") !=
                nullptr);
-        ASSERT(d->span.start == 0 && d->span.end == 40);
+        ASSERT(d->span.start == 6 && d->span.end == 46);
     }
 }
 
@@ -846,6 +942,11 @@ int main(void)
     test_let_statement();
     test_let_span_with_leading_text();
     test_statement_spans_in_sequence();
+    test_assign_statement();
+    test_assign_span_with_leading_text();
+    test_assign_value_is_full_expression();
+    test_assign_does_not_chain();
+    test_assign_in_sequence();
     test_print_statement();
     test_multiple_statements();
     test_many_statements();
