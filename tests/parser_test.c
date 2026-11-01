@@ -673,14 +673,9 @@ static void test_valid_parse_has_no_error(void)
 
 static void test_diagnostic_messages(void)
 {
-    expect_diag("x = 1;",
-                "expected a statement ('let' or 'print'), found identifier 'x'",
-                0,
-                1);
-    expect_diag("1;",
-                "expected a statement ('let' or 'print'), found number '1'",
-                0,
-                1);
+    expect_diag("x = 1;", "expected a statement, found identifier 'x'", 0, 1);
+    expect_diag("1;", "expected a statement, found number '1'", 0, 1);
+    expect_diag(";", "expected a statement, found ';'", 0, 1);
     expect_diag("let = 1;",
                 "expected a variable name after 'let', found '='",
                 4,
