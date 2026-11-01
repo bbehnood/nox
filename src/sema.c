@@ -131,6 +131,28 @@ static void sema_check_node(sema_t* sema, ast_node_t* node)
         sema_declare(sema, node->let.name, &node->slot);
         break;
 
+    case AST_ASSIGN:
+    {
+        sema_check_node(sema, node->assign.value);
+        if (sema->failed)
+            return;
+
+        const symbol_t* symbol = sema_lookup(sema, node->assign.name);
+
+        if (!symbol)
+        {
+            sema_report(sema,
+                        node->assign.name,
+                        "assignment to undeclared variable '%.*s'",
+                        (int)(node->assign.name.end - node->assign.name.start),
+                        sema->source.data + node->assign.name.start);
+            return;
+        }
+
+        node->slot = symbol->slot;
+        break;
+    }
+
     case AST_PRINT:
         sema_check_node(sema, node->print.value);
         break;
