@@ -1,0 +1,10 @@
+{
+    let t = 1;
+    print(t);
+}
+{
+    let t = 2;
+    print(t);
+}
+let t = 3;
+print(t);

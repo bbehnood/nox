@@ -43,6 +43,13 @@ static void codegen_store(codegen_t* codegen, size_t slot)
     fprintf(codegen->out, "    mov [rbp - %zu], rax\n", slot_offset(slot));
 }
 
+static void codegen_statements(codegen_t*                  codegen,
+                               const ast_statement_list_t* list)
+{
+    for (size_t i = 0; i < list->count; i++)
+        codegen_node(codegen, list->statements[i]);
+}
+
 static void codegen_division(codegen_t* codegen)
 {
     unsigned label = codegen->labels++;
@@ -142,9 +149,12 @@ static void codegen_node(codegen_t* codegen, const ast_node_t* node)
                 "    call printf@PLT\n");
         break;
 
+    case AST_BLOCK:
+        codegen_statements(codegen, &node->block);
+        break;
+
     case AST_PROGRAM:
-        for (size_t i = 0; i < node->program.count; i++)
-            codegen_node(codegen, node->program.statements[i]);
+        codegen_statements(codegen, &node->program);
         break;
     }
 }
