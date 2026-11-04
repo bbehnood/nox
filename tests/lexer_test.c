@@ -72,6 +72,8 @@ static void test_single_char_tokens(void)
     expect_single("=", TOKEN_EQUALS);
     expect_single("(", TOKEN_LPAREN);
     expect_single(")", TOKEN_RPAREN);
+    expect_single("{", TOKEN_LBRACE);
+    expect_single("}", TOKEN_RBRACE);
     expect_single(";", TOKEN_SEMICOLON);
 }
 
@@ -167,6 +169,27 @@ static void test_statement_sequence(void)
                  sizeof(want) / sizeof(want[0]));
 }
 
+static void test_braces(void)
+{
+    token_type_t nested[] = {
+        TOKEN_LBRACE,
+        TOKEN_LBRACE,
+        TOKEN_RBRACE,
+        TOKEN_RBRACE,
+    };
+    expect_types("{ { } }", nested, sizeof(nested) / sizeof(nested[0]));
+
+    token_type_t tight[] = {
+        TOKEN_LBRACE,
+        TOKEN_IDENTIFIER,
+        TOKEN_EQUALS,
+        TOKEN_INTEGER,
+        TOKEN_SEMICOLON,
+        TOKEN_RBRACE,
+    };
+    expect_types("{x=1;}", tight, sizeof(tight) / sizeof(tight[0]));
+}
+
 static void test_no_whitespace_needed(void)
 {
     token_type_t want[] = {
@@ -216,9 +239,9 @@ static void test_single_slash_is_not_comment(void)
 
 static void test_invalid_characters(void)
 {
-    const char invalid[] = {'@', '#',  '$', '%', '^',  '&', '!', '~',
-                            '"', '\'', '{', '}', '[',  ']', ',', '.',
-                            ':', '<',  '>', '?', '\\', '|', '`'};
+    const char invalid[] = {'@', '#', '$',  '%', '^',  '&', '!',
+                            '~', '"', '\'', '[', ']',  ',', '.',
+                            ':', '<', '>',  '?', '\\', '|', '`'};
 
     for (size_t i = 0; i < sizeof(invalid); i++)
     {
@@ -304,6 +327,7 @@ int main(void)
     test_digits_then_letters_split();
     test_spans();
     test_statement_sequence();
+    test_braces();
     test_no_whitespace_needed();
     test_comments();
     test_single_slash_is_not_comment();

@@ -35,6 +35,8 @@ typedef enum token_type
 
     TOKEN_LPAREN,
     TOKEN_RPAREN,
+    TOKEN_LBRACE,
+    TOKEN_RBRACE,
 
     TOKEN_SEMICOLON,
 } token_type_t;

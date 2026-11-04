@@ -84,6 +84,10 @@ static const char* token_symbol(token_type_t type)
         return "'('";
     case TOKEN_RPAREN:
         return "')'";
+    case TOKEN_LBRACE:
+        return "'{'";
+    case TOKEN_RBRACE:
+        return "'}'";
     case TOKEN_SEMICOLON:
         return "';'";
     case TOKEN_EOF:

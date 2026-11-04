@@ -177,6 +177,12 @@ token_t lexer_next(lexer_t* lexer)
     case ')':
         return make_token(TOKEN_RPAREN, start, lexer->position);
 
+    case '{':
+        return make_token(TOKEN_LBRACE, start, lexer->position);
+
+    case '}':
+        return make_token(TOKEN_RBRACE, start, lexer->position);
+
     case ';':
         return make_token(TOKEN_SEMICOLON, start, lexer->position);
 
