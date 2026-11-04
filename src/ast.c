@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-static constexpr size_t AST_PROGRAM_INITIAL_CAPACITY = 8;
+static constexpr size_t AST_STATEMENT_LIST_INITIAL_CAPACITY = 8;
 
 static ast_node_t* ast_alloc(ast_kind_t kind)
 {
@@ -132,38 +132,55 @@ ast_node_t* ast_print(source_span_t span, ast_node_t* value)
     return node;
 }
 
+ast_node_t* ast_block(void)
+{
+    ast_node_t* node = ast_alloc(AST_BLOCK);
+    if (!node)
+        return nullptr;
+
+    node->block = (ast_statement_list_t){};
+
+    return node;
+}
+
 ast_node_t* ast_program(void)
 {
     ast_node_t* node = ast_alloc(AST_PROGRAM);
     if (!node)
         return nullptr;
 
-    node->program.statements = nullptr;
-    node->program.count      = 0;
-    node->program.capacity   = 0;
+    node->program = (ast_statement_list_t){};
 
     return node;
 }
 
-bool ast_program_push(ast_node_t* program, ast_node_t* statement)
+bool ast_statement_list_push(ast_statement_list_t* list, ast_node_t* statement)
 {
-    if (program->program.count == program->program.capacity)
+    if (list->count == list->capacity)
     {
-        size_t new_capacity = program->program.capacity
-                                  ? program->program.capacity * 2
-                                  : AST_PROGRAM_INITIAL_CAPACITY;
+        size_t new_capacity = list->capacity
+                                  ? list->capacity * 2
+                                  : AST_STATEMENT_LIST_INITIAL_CAPACITY;
 
         ast_node_t** grown =
-            realloc(program->program.statements, new_capacity * sizeof(*grown));
+            realloc(list->statements, new_capacity * sizeof(*grown));
         if (!grown)
             return false;
 
-        program->program.statements = grown;
-        program->program.capacity   = new_capacity;
+        list->statements = grown;
+        list->capacity   = new_capacity;
     }
 
-    program->program.statements[program->program.count++] = statement;
+    list->statements[list->count++] = statement;
     return true;
+}
+
+static void ast_statement_list_free(ast_statement_list_t* list)
+{
+    for (size_t i = 0; i < list->count; i++)
+        ast_free(list->statements[i]);
+
+    free(list->statements);
 }
 
 void ast_free(ast_node_t* node)
@@ -198,10 +215,12 @@ void ast_free(ast_node_t* node)
         ast_free(node->print.value);
         break;
 
+    case AST_BLOCK:
+        ast_statement_list_free(&node->block);
+        break;
+
     case AST_PROGRAM:
-        for (size_t i = 0; i < node->program.count; i++)
-            ast_free(node->program.statements[i]);
-        free(node->program.statements);
+        ast_statement_list_free(&node->program);
         break;
     }
 

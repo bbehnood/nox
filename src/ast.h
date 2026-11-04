@@ -18,6 +18,7 @@ typedef enum ast_kind
     AST_ASSIGN,
     AST_PRINT,
 
+    AST_BLOCK,
     AST_PROGRAM,
 } ast_kind_t;
 
@@ -33,6 +34,13 @@ typedef enum unary_op
 {
     UNARY_OP_NEG,
 } unary_op_t;
+
+typedef struct ast_statement_list
+{
+    struct ast_node** statements;
+    size_t            count;
+    size_t            capacity;
+} ast_statement_list_t;
 
 typedef struct ast_node
 {
@@ -76,12 +84,8 @@ typedef struct ast_node
             struct ast_node* value;
         } print;
 
-        struct
-        {
-            struct ast_node** statements;
-            size_t            count;
-            size_t            capacity;
-        } program;
+        ast_statement_list_t block;
+        ast_statement_list_t program;
     };
 } ast_node_t;
 
@@ -112,10 +116,13 @@ ast_node_t* ast_assign(source_span_t span,
 ast_node_t* ast_print(source_span_t span, ast_node_t* value);
 
 [[nodiscard]]
+ast_node_t* ast_block(void);
+
+[[nodiscard]]
 ast_node_t* ast_program(void);
 
 [[nodiscard]]
-bool ast_program_push(ast_node_t* program, ast_node_t* statement);
+bool ast_statement_list_push(ast_statement_list_t* list, ast_node_t* statement);
 
 void ast_free(ast_node_t* node);
 

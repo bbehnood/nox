@@ -20,6 +20,7 @@ static constexpr uint64_t PARSER_INT64_MIN_MAGNITUDE  = (uint64_t)INT64_MAX + 1;
 static_assert(PARSER_INT64_MIN_MAGNITUDE == UINT64_C(1) << 63);
 
 static ast_node_t* parser_parse_expression(parser_t* parser);
+static ast_node_t* parser_parse_statement(parser_t* parser);
 
 static void parser_advance(parser_t* parser)
 {
@@ -188,13 +189,14 @@ static bool parser_expect(parser_t*    parser,
 }
 
 [[nodiscard]]
-static bool parser_enter(parser_t* parser)
+static bool parser_enter(parser_t* parser, const char* what)
 {
     if (parser->depth >= PARSER_MAX_NESTING)
     {
         parser_report(parser,
                       parser->current.span,
-                      "expression is nested too deeply (limit is %zu)",
+                      "%s is nested too deeply (limit is %zu)",
+                      what,
                       PARSER_MAX_NESTING);
 
         return false;
@@ -265,7 +267,7 @@ static ast_node_t* parser_parse_primary(parser_t* parser)
 
     if (parser_match(parser, TOKEN_LPAREN))
     {
-        if (!parser_enter(parser))
+        if (!parser_enter(parser, "expression"))
             return nullptr;
         ast_node_t* expression = parser_parse_expression(parser);
         parser_leave(parser);
@@ -310,7 +312,7 @@ static ast_node_t* parser_parse_unary(parser_t* parser)
             }
         }
 
-        if (!parser_enter(parser))
+        if (!parser_enter(parser, "expression"))
             return nullptr;
         ast_node_t* operand = parser_parse_unary(parser);
         parser_leave(parser);
@@ -527,6 +529,60 @@ static ast_node_t* parser_parse_print(parser_t* parser)
     return ast_print(span, value);
 }
 
+[[nodiscard]]
+static bool parser_parse_statements(parser_t*             parser,
+                                    ast_statement_list_t* list,
+                                    token_type_t          end)
+{
+    while (!parser_check(parser, end) && !parser_check(parser, TOKEN_EOF))
+    {
+        ast_node_t* statement = parser_parse_statement(parser);
+        if (!statement || !ast_statement_list_push(list, statement))
+        {
+            parser_report(parser, parser->current.span, "out of memory");
+
+            ast_free(statement);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static ast_node_t* parser_parse_block(parser_t* parser)
+{
+    size_t start = parser->previous.span.start;
+
+    ast_node_t* block = ast_block();
+    if (!block)
+    {
+        parser_report(parser, parser->current.span, "out of memory");
+        return nullptr;
+    }
+
+    if (!parser_enter(parser, "block"))
+    {
+        ast_free(block);
+        return nullptr;
+    }
+
+    bool parsed = parser_parse_statements(parser, &block->block, TOKEN_RBRACE);
+    parser_leave(parser);
+
+    if (!parsed || !parser_expect(parser, TOKEN_RBRACE, "'}' to close the '{'"))
+    {
+        ast_free(block);
+        return nullptr;
+    }
+
+    block->span = (source_span_t){
+        .start = start,
+        .end   = parser->previous.span.end,
+    };
+
+    return block;
+}
+
 static ast_node_t* parser_parse_statement(parser_t* parser)
 {
     if (parser_match(parser, TOKEN_LET))
@@ -537,6 +593,9 @@ static ast_node_t* parser_parse_statement(parser_t* parser)
 
     if (parser_match(parser, TOKEN_PRINT))
         return parser_parse_print(parser);
+
+    if (parser_match(parser, TOKEN_LBRACE))
+        return parser_parse_block(parser);
 
     parser_fail_expected(parser, "a statement");
 
@@ -564,17 +623,10 @@ ast_node_t* parser_parse(parser_t* parser)
         return nullptr;
     }
 
-    while (!parser_check(parser, TOKEN_EOF))
+    if (!parser_parse_statements(parser, &program->program, TOKEN_EOF))
     {
-        ast_node_t* statement = parser_parse_statement(parser);
-        if (!statement || !ast_program_push(program, statement))
-        {
-            parser_report(parser, parser->current.span, "out of memory");
-
-            ast_free(statement);
-            ast_free(program);
-            return nullptr;
-        }
+        ast_free(program);
+        return nullptr;
     }
 
     program->span.start = 0;

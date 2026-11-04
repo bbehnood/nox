@@ -139,6 +139,10 @@ static void test_ast_constructors(void)
     ast_node_t* p = ast_print(sp, ast_integer(sp, 1));
     ASSERT(p && p->kind == AST_PRINT && is_int(p->print.value, 1));
 
+    ast_node_t* blk = ast_block();
+    ASSERT(blk && blk->kind == AST_BLOCK);
+    ASSERT(blk->block.count == 0 && blk->block.statements == nullptr);
+
     ast_node_t* u = ast_unary(sp, UNARY_OP_NEG, ast_integer(sp, 4));
     ASSERT(u && u->kind == AST_UNARY && u->unary.op == UNARY_OP_NEG);
     ASSERT(is_int(u->unary.operand, 4));
@@ -148,6 +152,7 @@ static void test_ast_constructors(void)
     ast_free(l);
     ast_free(a);
     ast_free(p);
+    ast_free(blk);
 }
 
 static void test_ast_free_null(void)
@@ -156,7 +161,7 @@ static void test_ast_free_null(void)
     ASSERT(1);
 }
 
-static void test_ast_program_push_growth(void)
+static void test_ast_statement_list_push_growth(void)
 {
     ast_node_t* program = ast_program();
     ASSERT(program && program->kind == AST_PROGRAM);
@@ -167,7 +172,7 @@ static void test_ast_program_push_growth(void)
     {
         ast_node_t* n = ast_integer((source_span_t){0, 0}, i);
         ASSERT(n != nullptr);
-        ASSERT(ast_program_push(program, n));
+        ASSERT(ast_statement_list_push(&program->program, n));
     }
 
     ASSERT(program->program.count == 50);
@@ -301,6 +306,78 @@ static void test_assign_in_sequence(void)
     ASSERT(st[2]->span.start == 18 && st[2]->span.end == 27);
 
     ast_free(p);
+}
+
+static void test_block_statement(void)
+{
+    const char* src = "{ let x = 1; print(x); }";
+    ast_node_t* p   = parse_ok(src);
+
+    ASSERT(p && p->program.count == 1);
+    ast_node_t* b = p->program.statements[0];
+    ASSERT(b->kind == AST_BLOCK && b->block.count == 2);
+    ASSERT(b->span.start == 0 && b->span.end == strlen(src));
+    ASSERT(b->block.statements[0]->kind == AST_LET);
+    ASSERT(b->block.statements[1]->kind == AST_PRINT);
+
+    ast_free(p);
+}
+
+static void test_empty_block(void)
+{
+    const char* sources[] = {"{}", "{ }", "{\n}", "{ // nothing\n }"};
+
+    for (size_t i = 0; i < sizeof(sources) / sizeof(sources[0]); i++)
+    {
+        ast_node_t* p = parse_ok(sources[i]);
+
+        ASSERT(p && p->program.count == 1);
+        ast_node_t* b = p->program.statements[0];
+        ASSERT(b->kind == AST_BLOCK && b->block.count == 0);
+        ASSERT(b->span.start == 0 && b->span.end == strlen(sources[i]));
+
+        ast_free(p);
+    }
+}
+
+static void test_nested_blocks(void)
+{
+    ast_node_t* p = parse_ok("{ { print(1); } print(2); { } }");
+
+    ASSERT(p && p->program.count == 1);
+    ast_node_t* outer = p->program.statements[0];
+    ASSERT(outer->kind == AST_BLOCK && outer->block.count == 3);
+
+    ast_node_t** st = outer->block.statements;
+    ASSERT(st[0]->kind == AST_BLOCK && st[0]->block.count == 1);
+    ASSERT(st[0]->span.start == 2 && st[0]->span.end == 15);
+    ASSERT(st[1]->kind == AST_PRINT);
+    ASSERT(st[2]->kind == AST_BLOCK && st[2]->block.count == 0);
+    ASSERT(st[2]->span.start == 26 && st[2]->span.end == 29);
+
+    ast_free(p);
+}
+
+static void test_block_in_sequence(void)
+{
+    ast_node_t* p = parse_ok("print(1); { print(2); } print(3);");
+
+    ASSERT(p && p->program.count == 3);
+    ast_node_t** st = p->program.statements;
+    ASSERT(st[0]->kind == AST_PRINT);
+    ASSERT(st[1]->kind == AST_BLOCK && st[1]->block.count == 1);
+    ASSERT(st[1]->span.start == 10 && st[1]->span.end == 23);
+    ASSERT(st[2]->kind == AST_PRINT);
+    ASSERT(st[2]->span.start == 24 && st[2]->span.end == 33);
+
+    ast_free(p);
+}
+
+static void test_block_is_not_an_expression(void)
+{
+    expect_fail("let x = { 1 };");
+    expect_fail("print({});");
+    expect_fail("x = {};");
 }
 
 static void test_print_statement(void)
@@ -673,6 +750,15 @@ static void test_syntax_errors(void)
     expect_fail("print(1 - -);");
     expect_fail("print(-");
 
+    expect_fail("{");
+    expect_fail("}");
+    expect_fail("{ } }");
+    expect_fail("{ print(1);");
+    expect_fail("{ print(1) }");
+    expect_fail("{ 1; }");
+    expect_fail("{ { print(1); }");
+    expect_fail("{ print(1); };");
+
     expect_fail("let x = 1 @ 2;");
     expect_fail("@");
     expect_fail("print(1) # comment-ish;");
@@ -684,6 +770,8 @@ static void test_partial_failure_frees_earlier_statements(void)
     expect_fail("let a = (1 + 2) * 3; print(a +");
     expect_fail("let a = 1; a = 2; a = (1 + ;");
     expect_fail("let a = 1; a = 1 + 2");
+    expect_fail("let a = 1; { let b = 2; { print(a + b); let = ; } }");
+    expect_fail("{ let a = 1; { a = 2; } print(a)");
 }
 
 static void test_integer_literal_errors(void)
@@ -740,6 +828,44 @@ static void test_deep_nesting(void)
     }
     ASSERT(depth == 100);
     ast_free(p);
+}
+
+static size_t nested_blocks(char* buf, size_t size, size_t depth)
+{
+    size_t len = 0;
+
+    for (size_t i = 0; i < depth; i++)
+        buf[len++] = '{';
+
+    len += (size_t)snprintf(buf + len, size - len, "print(1);");
+
+    for (size_t i = 0; i < depth; i++)
+        buf[len++] = '}';
+
+    buf[len] = '\0';
+    return len;
+}
+
+static void test_deep_block_nesting(void)
+{
+    char buf[1024];
+
+    nested_blocks(buf, sizeof(buf), 100);
+
+    ast_node_t* p = parse_ok(buf);
+    ast_node_t* n = p;
+    for (int i = 0; i < 100; i++)
+    {
+        ASSERT(n->kind == AST_PROGRAM || n->kind == AST_BLOCK);
+        n = n->kind == AST_PROGRAM ? n->program.statements[0]
+                                   : n->block.statements[0];
+    }
+    ASSERT(n->kind == AST_BLOCK && n->block.count == 1);
+    ASSERT(n->block.statements[0]->kind == AST_PRINT);
+    ast_free(p);
+
+    nested_blocks(buf, sizeof(buf), 300);
+    expect_diag(buf, "block is nested too deeply (limit is 256)", 257, 258);
 }
 
 static void test_valid_parse_has_no_error(void)
@@ -841,6 +967,27 @@ static void test_diagnostic_messages(void)
                 "expected an expression, found ';'",
                 19,
                 20);
+
+    expect_diag("{", "expected '}' to close the '{', found end of input", 1, 1);
+    expect_diag("{ print(1);",
+                "expected '}' to close the '{', found end of input",
+                11,
+                11);
+    expect_diag("{ { print(1); }",
+                "expected '}' to close the '{', found end of input",
+                15,
+                15);
+    expect_diag("}", "expected a statement, found '}'", 0, 1);
+    expect_diag("{ } }", "expected a statement, found '}'", 4, 5);
+    expect_diag("{ print(1); };", "expected a statement, found ';'", 13, 14);
+    expect_diag("{ let x = 1 }",
+                "expected ';' after the let statement, found '}'",
+                12,
+                13);
+    expect_diag("{ x }",
+                "expected '=' after the variable name, found '}'",
+                4,
+                5);
 }
 
 static void test_invalid_character_diagnostics(void)
@@ -936,7 +1083,7 @@ int main(void)
 {
     test_ast_constructors();
     test_ast_free_null();
-    test_ast_program_push_growth();
+    test_ast_statement_list_push_growth();
 
     test_empty_program();
     test_let_statement();
@@ -947,6 +1094,11 @@ int main(void)
     test_assign_value_is_full_expression();
     test_assign_does_not_chain();
     test_assign_in_sequence();
+    test_block_statement();
+    test_empty_block();
+    test_nested_blocks();
+    test_block_in_sequence();
+    test_block_is_not_an_expression();
     test_print_statement();
     test_multiple_statements();
     test_many_statements();
@@ -978,6 +1130,7 @@ int main(void)
     test_partial_failure_frees_earlier_statements();
     test_integer_literal_errors();
     test_deep_nesting();
+    test_deep_block_nesting();
     test_parser_respects_source_length();
 
     TEST_EXIT();
