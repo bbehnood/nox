@@ -34,6 +34,18 @@ ast_node_t* ast_integer(source_span_t span, int64_t value)
     return node;
 }
 
+ast_node_t* ast_boolean(source_span_t span, bool value)
+{
+    ast_node_t* node = ast_alloc(AST_BOOLEAN);
+    if (!node)
+        return nullptr;
+
+    node->span    = span;
+    node->boolean = value;
+
+    return node;
+}
+
 ast_node_t* ast_identifier(source_span_t span)
 {
     ast_node_t* node = ast_alloc(AST_IDENTIFIER);
@@ -192,6 +204,7 @@ void ast_free(ast_node_t* node)
     switch (node->kind)
     {
     case AST_INTEGER:
+    case AST_BOOLEAN:
     case AST_IDENTIFIER:
         break;
 

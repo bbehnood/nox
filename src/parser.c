@@ -266,6 +266,12 @@ static ast_node_t* parser_parse_primary(parser_t* parser)
     if (parser_match(parser, TOKEN_INTEGER))
         return parser_parse_integer(parser, token, false);
 
+    if (parser_match(parser, TOKEN_TRUE))
+        return ast_boolean(token.span, true);
+
+    if (parser_match(parser, TOKEN_FALSE))
+        return ast_boolean(token.span, false);
+
     if (parser_match(parser, TOKEN_IDENTIFIER))
         return ast_identifier(token.span);
 

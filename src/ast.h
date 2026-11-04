@@ -10,6 +10,7 @@ typedef enum ast_kind
 {
     AST_INTEGER,
     AST_IDENTIFIER,
+    AST_BOOLEAN,
 
     AST_BINARY,
     AST_UNARY,
@@ -58,6 +59,7 @@ typedef struct ast_node
     union
     {
         int64_t integer;
+        bool    boolean;
 
         source_span_t identifier;
 
@@ -98,6 +100,9 @@ typedef struct ast_node
 
 [[nodiscard]]
 ast_node_t* ast_integer(source_span_t span, int64_t value);
+
+[[nodiscard]]
+ast_node_t* ast_boolean(source_span_t span, bool value);
 
 [[nodiscard]]
 ast_node_t* ast_identifier(source_span_t span);

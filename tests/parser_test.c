@@ -139,6 +139,13 @@ static void test_ast_constructors(void)
     ast_node_t* p = ast_print(sp, ast_integer(sp, 1));
     ASSERT(p && p->kind == AST_PRINT && is_int(p->print.value, 1));
 
+    ast_node_t* t = ast_boolean(sp, true);
+    ASSERT(t && t->kind == AST_BOOLEAN && t->boolean);
+    ASSERT(t->span.start == 3 && t->span.end == 5);
+
+    ast_node_t* f = ast_boolean(sp, false);
+    ASSERT(f && f->kind == AST_BOOLEAN && !f->boolean);
+
     ast_node_t* blk = ast_block();
     ASSERT(blk && blk->kind == AST_BLOCK);
     ASSERT(blk->block.count == 0 && blk->block.statements == nullptr);
@@ -152,6 +159,8 @@ static void test_ast_constructors(void)
     ast_free(l);
     ast_free(a);
     ast_free(p);
+    ast_free(t);
+    ast_free(f);
     ast_free(blk);
 }
 
@@ -720,6 +729,26 @@ static void test_keywords_not_identifiers(void)
     expect_fail("print(let);");
 }
 
+static void test_boolean_keywords_are_not_names(void)
+{
+    expect_fail("let true = 1;");
+    expect_fail("let false = 1;");
+    expect_fail("true = 1;");
+    expect_fail("false = true;");
+    expect_fail("print(true false);");
+    expect_fail("print(true;");
+
+    expect_diag("let true = 1;",
+                "expected a variable name after 'let', found 'true'",
+                4,
+                8);
+    expect_diag("true = 1;", "expected a statement, found 'true'", 0, 4);
+    expect_diag("print(true false);",
+                "expected ')' after the expression, found 'false'",
+                11,
+                16);
+}
+
 static void test_syntax_errors(void)
 {
     expect_fail("1;");
@@ -1097,6 +1126,50 @@ static void test_parser_respects_source_length(void)
     ast_free(p);
 }
 
+static void test_boolean_literals(void)
+{
+    ast_node_t* p = parse_ok("let a = true; let b = false;");
+
+    ASSERT(p && p->program.count == 2);
+
+    ast_node_t* t = p->program.statements[0]->let.value;
+    ASSERT(t->kind == AST_BOOLEAN && t->boolean);
+    ASSERT(t->span.start == 8 && t->span.end == 12);
+
+    ast_node_t* f = p->program.statements[1]->let.value;
+    ASSERT(f->kind == AST_BOOLEAN && !f->boolean);
+    ASSERT(f->span.start == 22 && f->span.end == 27);
+
+    ast_free(p);
+}
+
+static void test_boolean_expressions_parse(void)
+{
+    ast_node_t* p = parse_ok("print(true);");
+    ASSERT(expr_of(p)->kind == AST_BOOLEAN);
+    ast_free(p);
+
+    p = parse_ok("print((false));");
+    ASSERT(expr_of(p)->kind == AST_BOOLEAN && !expr_of(p)->boolean);
+    ast_free(p);
+
+    p = parse_ok("let b = true; b = false;");
+    ASSERT(p && p->program.count == 2);
+    ASSERT(p->program.statements[1]->kind == AST_ASSIGN);
+    ASSERT(p->program.statements[1]->assign.value->kind == AST_BOOLEAN);
+    ast_free(p);
+
+    p = parse_ok("print(-true);");
+    ASSERT(is_neg(expr_of(p)));
+    ASSERT(expr_of(p)->unary.operand->kind == AST_BOOLEAN);
+    ast_free(p);
+
+    p = parse_ok("print(true + 1);");
+    ASSERT(is_bin(expr_of(p), BINARY_OP_ADD));
+    ASSERT(expr_of(p)->binary.left->kind == AST_BOOLEAN);
+    ast_free(p);
+}
+
 int main(void)
 {
     test_ast_constructors();
@@ -1136,6 +1209,7 @@ int main(void)
     test_leading_zeros();
     test_comments_in_program();
     test_keywords_not_identifiers();
+    test_boolean_keywords_are_not_names();
 
     test_valid_parse_has_no_error();
     test_diagnostic_messages();
@@ -1151,6 +1225,9 @@ int main(void)
     test_deep_nesting();
     test_deep_block_nesting();
     test_parser_respects_source_length();
+
+    test_boolean_literals();
+    test_boolean_expressions_parse();
 
     TEST_EXIT();
 }
