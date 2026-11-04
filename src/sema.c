@@ -39,15 +39,43 @@ static bool sema_same_name(const sema_t* sema, source_span_t a, source_span_t b)
                                                length) == 0;
 }
 
-static const symbol_t* sema_lookup(const sema_t* sema, source_span_t name)
+static const symbol_t* sema_lookup_from(const sema_t* sema,
+                                        source_span_t name,
+                                        size_t        first)
 {
-    for (size_t i = 0; i < sema->symbol_count; i++)
+    for (size_t i = sema->symbol_count; i > first; i--)
     {
-        if (sema_same_name(sema, sema->symbols[i].name, name))
-            return &sema->symbols[i];
+        if (sema_same_name(sema, sema->symbols[i - 1].name, name))
+            return &sema->symbols[i - 1];
     }
 
     return nullptr;
+}
+
+static const symbol_t* sema_lookup(const sema_t* sema, source_span_t name)
+{
+    return sema_lookup_from(sema, name, 0);
+}
+
+static const symbol_t* sema_lookup_in_scope(const sema_t* sema,
+                                            source_span_t name)
+{
+    return sema_lookup_from(sema, name, sema->scope_start);
+}
+
+static size_t sema_enter_scope(sema_t* sema)
+{
+    size_t outer_start = sema->scope_start;
+
+    sema->scope_start = sema->symbol_count;
+
+    return outer_start;
+}
+
+static void sema_leave_scope(sema_t* sema, size_t outer_start)
+{
+    sema->symbol_count = sema->scope_start;
+    sema->scope_start  = outer_start;
 }
 
 static bool sema_declare(sema_t* sema, source_span_t name, size_t* slot)
@@ -118,7 +146,7 @@ static void sema_check_node(sema_t* sema, ast_node_t* node)
         if (sema->failed)
             return;
 
-        if (sema_lookup(sema, node->let.name))
+        if (sema_lookup_in_scope(sema, node->let.name))
         {
             sema_report(sema,
                         node->let.name,
@@ -156,6 +184,17 @@ static void sema_check_node(sema_t* sema, ast_node_t* node)
     case AST_PRINT:
         sema_check_node(sema, node->print.value);
         break;
+
+    case AST_BLOCK:
+    {
+        size_t outer_start = sema_enter_scope(sema);
+
+        for (size_t i = 0; i < node->block.count; i++)
+            sema_check_node(sema, node->block.statements[i]);
+
+        sema_leave_scope(sema, outer_start);
+        break;
+    }
 
     case AST_PROGRAM:
         for (size_t i = 0; i < node->program.count; i++)

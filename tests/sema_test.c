@@ -286,6 +286,231 @@ static void test_assign_after_failure_keeps_first_error(void)
     sema_free(&sema);
 }
 
+static void test_block_variable_is_local(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p = check(&sema, "{ let a = 1; } print(a);", &ok);
+
+    ASSERT(!ok);
+    ASSERT(strstr(sema_error(&sema)->message, "undeclared") != nullptr);
+    ASSERT(sema_error(&sema)->span.start == 21);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_nested_block_variable_is_local(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p = check(&sema, "{ { let a = 1; } print(a); }", &ok);
+
+    ASSERT(!ok);
+    ASSERT(strstr(sema_error(&sema)->message, "undeclared") != nullptr);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_block_sees_outer_variable(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p = check(&sema, "let a = 1; { { print(a); } }", &ok);
+
+    ASSERT(ok);
+    ASSERT(sema.slot_count == 1);
+
+    ast_node_t* inner = p->program.statements[1]->block.statements[0];
+    ASSERT(inner->block.statements[0]->print.value->slot == 0);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_block_assigns_outer_variable(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p = check(&sema, "let a = 1; { a = 2; } print(a);", &ok);
+
+    ASSERT(ok);
+    ASSERT(sema.slot_count == 1);
+
+    ast_node_t* assign = p->program.statements[1]->block.statements[0];
+    ASSERT(assign->kind == AST_ASSIGN && assign->slot == 0);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_block_shadows_outer_variable(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p =
+        check(&sema, "let a = 1; { let a = 2; print(a); } print(a);", &ok);
+
+    ASSERT(ok);
+    ASSERT(sema.slot_count == 2);
+
+    ast_node_t* block = p->program.statements[1];
+    ASSERT(block->block.statements[0]->slot == 1);
+    ASSERT(block->block.statements[1]->print.value->slot == 1);
+    ASSERT(p->program.statements[2]->print.value->slot == 0);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_shadow_initializer_sees_outer_variable(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p =
+        check(&sema, "let a = 1; { let a = a + 1; print(a); }", &ok);
+
+    ASSERT(ok);
+    ASSERT(sema.slot_count == 2);
+
+    ast_node_t* let = p->program.statements[1]->block.statements[0];
+    ASSERT(let->slot == 1);
+    ASSERT(let->let.value->binary.left->slot == 0);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_assign_targets_innermost_shadow(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p =
+        check(&sema, "let a = 1; { let a = 2; a = 3; } a = 4;", &ok);
+
+    ASSERT(ok);
+
+    ast_node_t* block = p->program.statements[1];
+    ASSERT(block->block.statements[1]->slot == 1);
+    ASSERT(p->program.statements[2]->slot == 0);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_block_redeclaration(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p = check(&sema, "{ let a = 1; let a = 2; }", &ok);
+
+    ASSERT(!ok);
+    ASSERT(strstr(sema_error(&sema)->message, "already declared") != nullptr);
+    ASSERT(sema_error(&sema)->span.start == 17);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_redeclaration_after_inner_scope(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p = check(&sema, "let a = 1; { let b = 2; } let a = 3;", &ok);
+
+    ASSERT(!ok);
+    ASSERT(strstr(sema_error(&sema)->message, "already declared") != nullptr);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_names_are_free_after_block(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p =
+        check(&sema, "{ let a = 1; } { let a = 2; } let a = 3; print(a);", &ok);
+
+    ASSERT(ok);
+    ASSERT(sema.slot_count == 3);
+    ASSERT(p->program.statements[3]->print.value->slot == 2);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_assign_before_declare_in_block(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p = check(&sema, "{ a = 1; let a = 2; }", &ok);
+
+    ASSERT(!ok);
+    ASSERT(strstr(sema_error(&sema)->message, "undeclared") != nullptr);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_empty_block_declares_nothing(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p = check(&sema, "{} { {} } print(1);", &ok);
+
+    ASSERT(ok);
+    ASSERT(sema.slot_count == 0);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_many_blocks_do_not_accumulate_symbols(void)
+{
+    char   text[4096];
+    size_t length = 0;
+
+    for (int i = 0; i < 50; i++)
+    {
+        length += (size_t)snprintf(text + length, sizeof(text) - length, "{ ");
+
+        for (int j = 0; j < 4; j++)
+            length += (size_t)snprintf(text + length,
+                                       sizeof(text) - length,
+                                       "let v%d = %d; ",
+                                       j,
+                                       j);
+
+        length += (size_t)snprintf(text + length, sizeof(text) - length, "} ");
+    }
+
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p = check(&sema, text, &ok);
+
+    ASSERT(ok);
+    ASSERT(sema.slot_count == 200);
+    ASSERT(sema.symbol_count == 0);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
 int main(void)
 {
     test_assigns_slots();
@@ -306,6 +531,20 @@ int main(void)
     test_assign_undeclared_value();
     test_assign_checks_value_before_target();
     test_assign_after_failure_keeps_first_error();
+
+    test_block_variable_is_local();
+    test_nested_block_variable_is_local();
+    test_block_sees_outer_variable();
+    test_block_assigns_outer_variable();
+    test_block_shadows_outer_variable();
+    test_shadow_initializer_sees_outer_variable();
+    test_assign_targets_innermost_shadow();
+    test_block_redeclaration();
+    test_redeclaration_after_inner_scope();
+    test_names_are_free_after_block();
+    test_assign_before_declare_in_block();
+    test_empty_block_declares_nothing();
+    test_many_blocks_do_not_accumulate_symbols();
 
     TEST_EXIT();
 }

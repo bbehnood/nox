@@ -20,6 +20,7 @@ typedef struct sema
     symbol_t* symbols;
     size_t    symbol_count;
     size_t    symbol_capacity;
+    size_t    scope_start;
 
     size_t slot_count;
 
