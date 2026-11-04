@@ -81,6 +81,18 @@ static void test_keywords_and_identifiers(void)
 {
     expect_single("let", TOKEN_LET);
     expect_single("print", TOKEN_PRINT);
+    expect_single("true", TOKEN_TRUE);
+    expect_single("false", TOKEN_FALSE);
+
+    expect_single("True", TOKEN_IDENTIFIER);
+    expect_single("TRUE", TOKEN_IDENTIFIER);
+    expect_single("tru", TOKEN_IDENTIFIER);
+    expect_single("truee", TOKEN_IDENTIFIER);
+    expect_single("true_", TOKEN_IDENTIFIER);
+    expect_single("_true", TOKEN_IDENTIFIER);
+    expect_single("False", TOKEN_IDENTIFIER);
+    expect_single("fals", TOKEN_IDENTIFIER);
+    expect_single("false1", TOKEN_IDENTIFIER);
 
     expect_single("lets", TOKEN_IDENTIFIER);
     expect_single("le", TOKEN_IDENTIFIER);
@@ -317,6 +329,29 @@ static void test_lexer_init_resets_state(void)
     ASSERT(t.span.start == 0 && t.span.end == 1);
 }
 
+static void test_boolean_statement(void)
+{
+    token_type_t want[] = {
+        TOKEN_LET,
+        TOKEN_IDENTIFIER,
+        TOKEN_EQUALS,
+        TOKEN_TRUE,
+        TOKEN_SEMICOLON,
+        TOKEN_IDENTIFIER,
+        TOKEN_EQUALS,
+        TOKEN_FALSE,
+        TOKEN_SEMICOLON,
+        TOKEN_PRINT,
+        TOKEN_LPAREN,
+        TOKEN_TRUE,
+        TOKEN_RPAREN,
+        TOKEN_SEMICOLON,
+    };
+    expect_types("let b = true; b = false; print(true);",
+                 want,
+                 sizeof(want) / sizeof(want[0]));
+}
+
 int main(void)
 {
     test_empty_and_whitespace();
@@ -336,6 +371,7 @@ int main(void)
     test_recovers_after_error();
     test_respects_length_not_nul();
     test_lexer_init_resets_state();
+    test_boolean_statement();
 
     TEST_EXIT();
 }

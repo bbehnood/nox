@@ -511,6 +511,106 @@ static void test_many_blocks_do_not_accumulate_symbols(void)
     sema_free(&sema);
 }
 
+static void test_expression_types(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p = check(&sema, "let a = 1; print(-a + 2 * a);", &ok);
+
+    ASSERT(ok);
+    ASSERT(p->program.statements[0]->let.value->type == TYPE_INT);
+
+    ast_node_t* sum = p->program.statements[1]->print.value;
+    ASSERT(sum->kind == AST_BINARY && sum->type == TYPE_INT);
+
+    ast_node_t* neg = sum->binary.left;
+    ASSERT(neg->kind == AST_UNARY && neg->type == TYPE_INT);
+    ASSERT(neg->unary.operand->kind == AST_IDENTIFIER);
+    ASSERT(neg->unary.operand->type == TYPE_INT);
+
+    ast_node_t* product = sum->binary.right;
+    ASSERT(product->kind == AST_BINARY && product->type == TYPE_INT);
+    ASSERT(product->binary.left->type == TYPE_INT);
+    ASSERT(product->binary.right->type == TYPE_INT);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_statements_have_no_type(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p = check(&sema, "let a = 1; a = 2; print(a); { }", &ok);
+
+    ASSERT(ok && p->program.count == 4);
+    ASSERT(p->program.statements[0]->type == TYPE_NONE);
+    ASSERT(p->program.statements[1]->type == TYPE_NONE);
+    ASSERT(p->program.statements[2]->type == TYPE_NONE);
+    ASSERT(p->program.statements[3]->type == TYPE_NONE);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_symbols_record_types(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p = check(&sema, "let a = 1; let b = a + 1;", &ok);
+
+    ASSERT(ok);
+    ASSERT(sema.symbol_count == 2);
+    ASSERT(sema.symbols[0].type == TYPE_INT);
+    ASSERT(sema.symbols[1].type == TYPE_INT);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_identifier_takes_declared_type(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p =
+        check(&sema,
+              "let a = 1; { let a = 2; print(a); } a = 3; print(a);",
+              &ok);
+
+    ASSERT(ok);
+
+    ast_node_t* block = p->program.statements[1];
+    ASSERT(block->block.statements[1]->print.value->type == TYPE_INT);
+    ASSERT(p->program.statements[3]->print.value->type == TYPE_INT);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_types_are_set_inside_nested_blocks(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p = check(&sema, "{ let b = 1; { print(b + 1); } }", &ok);
+
+    ASSERT(ok);
+
+    ast_node_t* outer = p->program.statements[0];
+    ast_node_t* inner = outer->block.statements[1];
+    ast_node_t* sum   = inner->block.statements[0]->print.value;
+    ASSERT(sum->type == TYPE_INT);
+    ASSERT(sum->binary.left->type == TYPE_INT);
+    ASSERT(sum->binary.right->type == TYPE_INT);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
 int main(void)
 {
     test_assigns_slots();
@@ -545,6 +645,12 @@ int main(void)
     test_assign_before_declare_in_block();
     test_empty_block_declares_nothing();
     test_many_blocks_do_not_accumulate_symbols();
+
+    test_expression_types();
+    test_statements_have_no_type();
+    test_symbols_record_types();
+    test_identifier_takes_declared_type();
+    test_types_are_set_inside_nested_blocks();
 
     TEST_EXIT();
 }

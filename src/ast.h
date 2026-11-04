@@ -35,6 +35,12 @@ typedef enum unary_op
     UNARY_OP_NEG,
 } unary_op_t;
 
+typedef enum type
+{
+    TYPE_NONE,
+    TYPE_INT
+} type_t;
+
 typedef struct ast_statement_list
 {
     struct ast_node** statements;
@@ -47,6 +53,7 @@ typedef struct ast_node
     ast_kind_t    kind;
     source_span_t span;
     size_t        slot;
+    type_t        type;
 
     union
     {

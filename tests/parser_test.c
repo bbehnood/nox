@@ -196,6 +196,24 @@ static void test_empty_program(void)
     ast_free(p);
 }
 
+static void test_nodes_start_untyped(void)
+{
+    ast_node_t* p = parse_ok("let a = 1; print(-a + 2);");
+
+    ASSERT(p->type == TYPE_NONE);
+
+    ast_node_t* let = p->program.statements[0];
+    ASSERT(let->type == TYPE_NONE);
+    ASSERT(let->let.value->type == TYPE_NONE);
+
+    ast_node_t* sum = p->program.statements[1]->print.value;
+    ASSERT(sum->type == TYPE_NONE);
+    ASSERT(sum->binary.left->type == TYPE_NONE);
+    ASSERT(sum->binary.right->type == TYPE_NONE);
+
+    ast_free(p);
+}
+
 static void test_let_statement(void)
 {
     const char* src = "let x = 5;";
@@ -1086,6 +1104,7 @@ int main(void)
     test_ast_statement_list_push_growth();
 
     test_empty_program();
+    test_nodes_start_untyped();
     test_let_statement();
     test_let_span_with_leading_text();
     test_statement_spans_in_sequence();

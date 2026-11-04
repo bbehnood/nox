@@ -78,7 +78,10 @@ static void sema_leave_scope(sema_t* sema, size_t outer_start)
     sema->scope_start  = outer_start;
 }
 
-static bool sema_declare(sema_t* sema, source_span_t name, size_t* slot)
+static bool sema_declare(sema_t*       sema,
+                         source_span_t name,
+                         type_t        type,
+                         size_t*       slot)
 {
     if (sema->symbol_count == sema->symbol_capacity)
     {
@@ -99,8 +102,11 @@ static bool sema_declare(sema_t* sema, source_span_t name, size_t* slot)
 
     *slot = sema->slot_count++;
 
-    sema->symbols[sema->symbol_count++] =
-        (symbol_t){.name = name, .slot = *slot};
+    sema->symbols[sema->symbol_count++] = (symbol_t){
+        .name = name,
+        .type = type,
+        .slot = *slot,
+    };
     return true;
 }
 
@@ -112,6 +118,7 @@ static void sema_check_node(sema_t* sema, ast_node_t* node)
     switch (node->kind)
     {
     case AST_INTEGER:
+        node->type = TYPE_INT;
         break;
 
     case AST_IDENTIFIER:
@@ -129,16 +136,25 @@ static void sema_check_node(sema_t* sema, ast_node_t* node)
         }
 
         node->slot = symbol->slot;
+        node->type = symbol->type;
         break;
     }
 
     case AST_BINARY:
         sema_check_node(sema, node->binary.left);
         sema_check_node(sema, node->binary.right);
+        if (sema->failed)
+            return;
+
+        node->type = TYPE_INT;
         break;
 
     case AST_UNARY:
         sema_check_node(sema, node->unary.operand);
+        if (sema->failed)
+            return;
+
+        node->type = TYPE_INT;
         break;
 
     case AST_LET:
@@ -156,7 +172,7 @@ static void sema_check_node(sema_t* sema, ast_node_t* node)
             return;
         }
 
-        sema_declare(sema, node->let.name, &node->slot);
+        sema_declare(sema, node->let.name, node->let.value->type, &node->slot);
         break;
 
     case AST_ASSIGN:

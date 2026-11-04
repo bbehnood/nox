@@ -11,6 +11,7 @@ typedef struct symbol
 {
     source_span_t name;
     size_t        slot;
+    type_t        type;
 } symbol_t;
 
 typedef struct sema

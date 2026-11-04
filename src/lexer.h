@@ -25,6 +25,8 @@ typedef enum token_type
 
     TOKEN_LET,
     TOKEN_PRINT,
+    TOKEN_TRUE,
+    TOKEN_FALSE,
 
     TOKEN_PLUS,
     TOKEN_MINUS,

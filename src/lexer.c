@@ -13,6 +13,8 @@ typedef struct keyword
 static const keyword_t KEYWORDS[] = {
     {"let", TOKEN_LET},
     {"print", TOKEN_PRINT},
+    {"true", TOKEN_TRUE},
+    {"false", TOKEN_FALSE},
 };
 
 static bool is_identifier_start(char c)

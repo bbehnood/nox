@@ -17,6 +17,7 @@ static ast_node_t* ast_alloc(ast_kind_t kind)
     node->kind = kind;
     node->span = (source_span_t){};
     node->slot = 0;
+    node->type = TYPE_NONE;
 
     return node;
 }

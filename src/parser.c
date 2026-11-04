@@ -71,6 +71,10 @@ static const char* token_symbol(token_type_t type)
         return "'let'";
     case TOKEN_PRINT:
         return "'print'";
+    case TOKEN_TRUE:
+        return "'true'";
+    case TOKEN_FALSE:
+        return "'false'";
     case TOKEN_PLUS:
         return "'+'";
     case TOKEN_MINUS:
