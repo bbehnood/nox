@@ -1,0 +1,8 @@
+let flag = true;
+print(flag);
+flag = false;
+print(flag);
+let copy = flag;
+flag = true;
+print(copy);
+print(flag);

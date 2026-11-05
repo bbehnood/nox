@@ -1,0 +1,6 @@
+let a = 1;
+{
+    let a = true;
+    print(a);
+}
+print(a);

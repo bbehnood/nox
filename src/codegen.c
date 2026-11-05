@@ -2,6 +2,7 @@
 
 #include "ast.h"
 
+#include <assert.h>
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -101,12 +102,44 @@ static void codegen_binary(codegen_t* codegen, const ast_node_t* node)
     }
 }
 
+static void codegen_print(codegen_t* codegen, type_t type)
+{
+    switch (type)
+    {
+    case TYPE_INT:
+        fprintf(codegen->out,
+                "    mov rsi, rax\n"
+                "    lea rdi, [rip + .Lfmt_int]\n"
+                "    xor eax, eax\n"
+                "    call printf@PLT\n");
+        break;
+
+    case TYPE_BOOL:
+        fprintf(codegen->out,
+                "    test rax, rax\n"
+                "    lea rsi, [rip + .Lfalse]\n"
+                "    lea rdx, [rip + .Ltrue]\n"
+                "    cmovnz rsi, rdx\n"
+                "    lea rdi, [rip + .Lfmt_str]\n"
+                "    xor eax, eax\n"
+                "    call printf@PLT\n");
+        break;
+
+    case TYPE_NONE:
+        assert(false);
+    }
+}
+
 static void codegen_node(codegen_t* codegen, const ast_node_t* node)
 {
     switch (node->kind)
     {
     case AST_INTEGER:
         fprintf(codegen->out, "    mov rax, %" PRId64 "\n", node->integer);
+        break;
+
+    case AST_BOOLEAN:
+        fprintf(codegen->out, "    mov rax, %d\n", node->boolean ? 1 : 0);
         break;
 
     case AST_IDENTIFIER:
@@ -142,11 +175,7 @@ static void codegen_node(codegen_t* codegen, const ast_node_t* node)
 
     case AST_PRINT:
         codegen_node(codegen, node->print.value);
-        fprintf(codegen->out,
-                "    mov rsi, rax\n"
-                "    lea rdi, [rip + .Lfmt]\n"
-                "    xor eax, eax\n"
-                "    call printf@PLT\n");
+        codegen_print(codegen, node->print.value->type);
         break;
 
     case AST_BLOCK:
@@ -168,8 +197,14 @@ bool codegen_emit(FILE* out, const ast_node_t* program, size_t slot_count)
     fprintf(out,
             "    .intel_syntax noprefix\n"
             "    .section .rodata\n"
-            ".Lfmt:\n"
+            ".Lfmt_int:\n"
             "    .asciz \"%%ld\\n\"\n"
+            ".Lfmt_str:\n"
+            "    .asciz \"%%s\\n\"\n"
+            ".Ltrue:\n"
+            "    .asciz \"true\"\n"
+            ".Lfalse:\n"
+            "    .asciz \"false\"\n"
             ".Ldiv_zero_msg:\n"
             "    .ascii \"" DIV_ZERO_MESSAGE "\"\n"
             "    .set .Ldiv_zero_len, . - .Ldiv_zero_msg\n"
