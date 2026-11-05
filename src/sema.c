@@ -139,6 +139,44 @@ static void sema_expect_type(sema_t*           sema,
                 type_name(node->type));
 }
 
+static void sema_check_binary(sema_t* sema, ast_node_t* node)
+{
+    const ast_node_t* left  = node->binary.left;
+    const ast_node_t* right = node->binary.right;
+
+    type_t result = TYPE_NONE;
+
+    switch (node->binary.op)
+    {
+    case BINARY_OP_ADD:
+    case BINARY_OP_SUB:
+    case BINARY_OP_MUL:
+    case BINARY_OP_DIV:
+        sema_expect_type(sema, left, TYPE_INT);
+        sema_expect_type(sema, right, TYPE_INT);
+        result = TYPE_INT;
+        break;
+
+    case BINARY_OP_LT:
+    case BINARY_OP_LE:
+    case BINARY_OP_GT:
+    case BINARY_OP_GE:
+        sema_expect_type(sema, left, TYPE_INT);
+        sema_expect_type(sema, right, TYPE_INT);
+        result = TYPE_BOOL;
+        break;
+
+    case BINARY_OP_EQ:
+    case BINARY_OP_NE:
+        sema_expect_type(sema, right, left->type);
+        result = TYPE_BOOL;
+        break;
+    }
+
+    if (!sema->failed)
+        node->type = result;
+}
+
 static void sema_check_node(sema_t* sema, ast_node_t* node)
 {
     if (!node || sema->failed)
@@ -179,12 +217,7 @@ static void sema_check_node(sema_t* sema, ast_node_t* node)
         if (sema->failed)
             return;
 
-        sema_expect_type(sema, node->binary.left, TYPE_INT);
-        sema_expect_type(sema, node->binary.right, TYPE_INT);
-        if (sema->failed)
-            return;
-
-        node->type = TYPE_INT;
+        sema_check_binary(sema, node);
         break;
 
     case AST_UNARY:

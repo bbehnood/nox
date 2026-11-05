@@ -792,6 +792,135 @@ static void test_first_type_error_wins(void)
                       10);
 }
 
+static void test_comparison_types(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p =
+        check(&sema,
+              "let a = 1 < 2; let b = 1 == 1; let c = true != false; "
+              "print(a); print(1 + 2 < 3 * 4);",
+              &ok);
+
+    ASSERT(ok);
+    ASSERT(sema.symbols[0].type == TYPE_BOOL);
+    ASSERT(sema.symbols[1].type == TYPE_BOOL);
+    ASSERT(sema.symbols[2].type == TYPE_BOOL);
+    ASSERT(p->program.statements[3]->print.value->type == TYPE_BOOL);
+
+    ast_node_t* e = p->program.statements[4]->print.value;
+    ASSERT(e->kind == AST_BINARY && e->type == TYPE_BOOL);
+    ASSERT(e->binary.left->type == TYPE_INT);
+    ASSERT(e->binary.right->type == TYPE_INT);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_equality_accepts_matching_types(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p = check(&sema,
+                          "print(1 == 2); print(1 != 2); print(true == false); "
+                          "print((1 < 2) == (2 < 3));",
+                          &ok);
+
+    ASSERT(ok);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_ordering_requires_ints(void)
+{
+    expect_sema_error("print(true < 1);", "expected int, found bool", 6, 10);
+    expect_sema_error("print(1 >= false);", "expected int, found bool", 11, 16);
+    expect_sema_error("print(true <= false);",
+                      "expected int, found bool",
+                      6,
+                      10);
+    expect_sema_error("print((1 < 2) > 0);", "expected int, found bool", 7, 12);
+}
+
+static void test_equality_requires_matching_types(void)
+{
+    expect_sema_error("print(1 == true);", "expected int, found bool", 11, 15);
+    expect_sema_error("print(true != 1);", "expected bool, found int", 14, 15);
+    expect_sema_error("print((1 < 2) == 3);",
+                      "expected bool, found int",
+                      17,
+                      18);
+    expect_sema_error("print(1 == (2 < 3));",
+                      "expected int, found bool",
+                      12,
+                      17);
+}
+
+static void test_comparison_result_is_not_an_int(void)
+{
+    expect_sema_error("print((1 < 2) + 1);", "expected int, found bool", 7, 12);
+    expect_sema_error("print(-(1 < 2));", "expected int, found bool", 8, 13);
+    expect_sema_error("let n = 1; n = n < 2;",
+                      "expected int, found bool",
+                      15,
+                      20);
+}
+
+static void test_comparison_result_is_a_bool(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p =
+        check(&sema, "let b = true; b = 1 < 2; b = b == false;", &ok);
+
+    ASSERT(ok);
+    ASSERT(p->program.statements[1]->assign.value->type == TYPE_BOOL);
+    ASSERT(p->program.statements[2]->assign.value->type == TYPE_BOOL);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_operands_are_checked_before_comparing(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p = check(&sema, "print(a < 1);", &ok);
+
+    ASSERT(!ok);
+    ASSERT(strstr(sema_error(&sema)->message, "undeclared") != nullptr);
+    ASSERT(sema_error(&sema)->span.start == 6);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_comparison_uses_innermost_declaration(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p = check(&sema,
+                          "let a = 1; { let a = true; print(a == true); } "
+                          "print(a == 1);",
+                          &ok);
+
+    ASSERT(ok);
+
+    ast_free(p);
+    sema_free(&sema);
+
+    expect_sema_error("let a = 1; { let a = true; print(a == 1); }",
+                      "expected bool, found int",
+                      38,
+                      39);
+}
+
 int main(void)
 {
     test_assigns_slots();
@@ -844,6 +973,15 @@ int main(void)
     test_shadowed_variable_keeps_inner_type();
     test_types_are_checked_inside_blocks();
     test_first_type_error_wins();
+
+    test_comparison_types();
+    test_equality_accepts_matching_types();
+    test_ordering_requires_ints();
+    test_equality_requires_matching_types();
+    test_comparison_result_is_not_an_int();
+    test_comparison_result_is_a_bool();
+    test_operands_are_checked_before_comparing();
+    test_comparison_uses_innermost_declaration();
 
     TEST_EXIT();
 }

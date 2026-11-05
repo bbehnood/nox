@@ -1364,6 +1364,12 @@ int main(void)
 
     test_boolean_literals();
     test_boolean_expressions_parse();
+    test_comparison_operators_parse();
+    test_comparison_precedence();
+    test_comparison_span();
+    test_comparison_in_statements();
+    test_comparison_needs_parentheses_to_chain();
+    test_comparison_syntax_errors();
 
     TEST_EXIT();
 }
