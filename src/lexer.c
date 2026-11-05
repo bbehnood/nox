@@ -86,6 +86,25 @@ static char lexer_advance(lexer_t* lexer)
     return lexer->source.data[lexer->position++];
 }
 
+static bool lexer_match(lexer_t* lexer, char expected)
+{
+    if (lexer_peek(lexer) != expected)
+        return false;
+
+    lexer_advance(lexer);
+    return true;
+}
+
+static token_t lexer_make_token_with_equals(lexer_t*     lexer,
+                                            size_t       start,
+                                            token_type_t plain,
+                                            token_type_t with_equals)
+{
+    token_type_t type = lexer_match(lexer, '=') ? with_equals : plain;
+
+    return make_token(type, start, lexer->position);
+}
+
 static void lexer_skip_whitespace_and_comments(lexer_t* lexer)
 {
     while (!lexer_at_end(lexer))
@@ -171,7 +190,28 @@ token_t lexer_next(lexer_t* lexer)
         return make_token(TOKEN_SLASH, start, lexer->position);
 
     case '=':
-        return make_token(TOKEN_EQUALS, start, lexer->position);
+        return lexer_make_token_with_equals(lexer,
+                                            start,
+                                            TOKEN_EQUALS,
+                                            TOKEN_EQUALS_EQUALS);
+
+    case '!':
+        return lexer_make_token_with_equals(lexer,
+                                            start,
+                                            TOKEN_ERROR,
+                                            TOKEN_BANG_EQUALS);
+
+    case '<':
+        return lexer_make_token_with_equals(lexer,
+                                            start,
+                                            TOKEN_LESS,
+                                            TOKEN_LESS_EQUALS);
+
+    case '>':
+        return lexer_make_token_with_equals(lexer,
+                                            start,
+                                            TOKEN_GREATER,
+                                            TOKEN_GREATER_EQUALS);
 
     case '(':
         return make_token(TOKEN_LPAREN, start, lexer->position);

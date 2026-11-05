@@ -251,9 +251,25 @@ static void test_single_slash_is_not_comment(void)
 
 static void test_invalid_characters(void)
 {
-    const char invalid[] = {'@', '#', '$',  '%', '^',  '&', '!',
-                            '~', '"', '\'', '[', ']',  ',', '.',
-                            ':', '<', '>',  '?', '\\', '|', '`'};
+    const char invalid[] = {'@',
+                            '#',
+                            '$',
+                            '%',
+                            '^',
+                            '&',
+                            '!',
+                            '~',
+                            '"',
+                            '\'',
+                            '[',
+                            ']',
+                            ',',
+                            '.',
+                            ':',
+                            '?',
+                            '\\',
+                            '|',
+                            '`'};
 
     for (size_t i = 0; i < sizeof(invalid); i++)
     {
@@ -352,6 +368,115 @@ static void test_boolean_statement(void)
                  sizeof(want) / sizeof(want[0]));
 }
 
+static void test_comparison_operators(void)
+{
+    expect_single("=", TOKEN_EQUALS);
+    expect_single("==", TOKEN_EQUALS_EQUALS);
+    expect_single("!=", TOKEN_BANG_EQUALS);
+    expect_single("<", TOKEN_LESS);
+    expect_single("<=", TOKEN_LESS_EQUALS);
+    expect_single(">", TOKEN_GREATER);
+    expect_single(">=", TOKEN_GREATER_EQUALS);
+}
+
+static void test_comparison_operator_sequences(void)
+{
+    token_type_t tight[] = {TOKEN_IDENTIFIER, TOKEN_LESS, TOKEN_IDENTIFIER};
+    expect_types("a<b", tight, 3);
+
+    token_type_t tight_equals[] = {
+        TOKEN_INTEGER,
+        TOKEN_LESS_EQUALS,
+        TOKEN_INTEGER,
+    };
+    expect_types("1<=2", tight_equals, 3);
+
+    token_type_t negative[] = {
+        TOKEN_IDENTIFIER,
+        TOKEN_LESS,
+        TOKEN_MINUS,
+        TOKEN_INTEGER,
+    };
+    expect_types("x<-1", negative, 4);
+
+    token_type_t mixed[] = {
+        TOKEN_IDENTIFIER,
+        TOKEN_EQUALS,
+        TOKEN_IDENTIFIER,
+        TOKEN_EQUALS_EQUALS,
+        TOKEN_IDENTIFIER,
+    };
+    expect_types("a = b == c", mixed, 5);
+
+    token_type_t triple_equals[] = {TOKEN_EQUALS_EQUALS, TOKEN_EQUALS};
+    expect_types("===", triple_equals, 2);
+
+    token_type_t bang_equals_equals[] = {TOKEN_BANG_EQUALS, TOKEN_EQUALS};
+    expect_types("!==", bang_equals_equals, 2);
+
+    token_type_t less_equals_equals[] = {TOKEN_LESS_EQUALS, TOKEN_EQUALS};
+    expect_types("<==", less_equals_equals, 2);
+
+    token_type_t greater_equals_greater[] = {
+        TOKEN_GREATER_EQUALS,
+        TOKEN_GREATER,
+    };
+    expect_types(">=>", greater_equals_greater, 2);
+
+    token_type_t split_less[] = {TOKEN_LESS, TOKEN_EQUALS};
+    expect_types("< =", split_less, 2);
+
+    token_type_t split_equals[] = {TOKEN_EQUALS, TOKEN_EQUALS};
+    expect_types("= =", split_equals, 2);
+}
+
+static void test_comparison_operator_spans(void)
+{
+    lexer_t lexer;
+    lexer_init(&lexer, SRC("a <= b != c"));
+
+    token_t t = lexer_next(&lexer);
+    ASSERT(t.type == TOKEN_IDENTIFIER);
+
+    t = lexer_next(&lexer);
+    ASSERT(t.type == TOKEN_LESS_EQUALS);
+    ASSERT(t.span.start == 2 && t.span.end == 4);
+
+    t = lexer_next(&lexer);
+    ASSERT(t.type == TOKEN_IDENTIFIER);
+
+    t = lexer_next(&lexer);
+    ASSERT(t.type == TOKEN_BANG_EQUALS);
+    ASSERT(t.span.start == 7 && t.span.end == 9);
+}
+
+static void test_bang_needs_equals(void)
+{
+    lexer_t lexer;
+
+    lexer_init(&lexer, SRC("! ="));
+    token_t t = lexer_next(&lexer);
+    ASSERT(t.type == TOKEN_ERROR);
+    ASSERT(t.span.start == 0 && t.span.end == 1);
+    ASSERT(lexer_next(&lexer).type == TOKEN_EQUALS);
+
+    lexer_init(&lexer, SRC("!a"));
+    t = lexer_next(&lexer);
+    ASSERT(t.type == TOKEN_ERROR);
+    ASSERT(t.span.start == 0 && t.span.end == 1);
+    ASSERT(lexer_next(&lexer).type == TOKEN_IDENTIFIER);
+
+    lexer_init(&lexer, SRC("!!="));
+    t = lexer_next(&lexer);
+    ASSERT(t.type == TOKEN_ERROR);
+    ASSERT(t.span.start == 0 && t.span.end == 1);
+
+    t = lexer_next(&lexer);
+    ASSERT(t.type == TOKEN_BANG_EQUALS);
+    ASSERT(t.span.start == 1 && t.span.end == 3);
+    ASSERT(lexer_next(&lexer).type == TOKEN_EOF);
+}
+
 int main(void)
 {
     test_empty_and_whitespace();
@@ -372,6 +497,11 @@ int main(void)
     test_respects_length_not_nul();
     test_lexer_init_resets_state();
     test_boolean_statement();
+
+    test_comparison_operators();
+    test_comparison_operator_sequences();
+    test_comparison_operator_spans();
+    test_bang_needs_equals();
 
     TEST_EXIT();
 }

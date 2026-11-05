@@ -85,6 +85,18 @@ static const char* token_symbol(token_type_t type)
         return "'/'";
     case TOKEN_EQUALS:
         return "'='";
+    case TOKEN_EQUALS_EQUALS:
+        return "'=='";
+    case TOKEN_BANG_EQUALS:
+        return "'!='";
+    case TOKEN_LESS:
+        return "'<'";
+    case TOKEN_LESS_EQUALS:
+        return "'<='";
+    case TOKEN_GREATER:
+        return "'>'";
+    case TOKEN_GREATER_EQUALS:
+        return "'>='";
     case TOKEN_LPAREN:
         return "'('";
     case TOKEN_RPAREN:
