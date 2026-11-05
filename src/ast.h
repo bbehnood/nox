@@ -29,6 +29,13 @@ typedef enum binary_op
     BINARY_OP_SUB,
     BINARY_OP_MUL,
     BINARY_OP_DIV,
+
+    BINARY_OP_EQ,
+    BINARY_OP_NE,
+    BINARY_OP_LT,
+    BINARY_OP_LE,
+    BINARY_OP_GT,
+    BINARY_OP_GE,
 } binary_op_t;
 
 typedef enum unary_op

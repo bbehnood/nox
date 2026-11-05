@@ -19,6 +19,21 @@ static constexpr uint64_t PARSER_INT64_MIN_MAGNITUDE  = (uint64_t)INT64_MAX + 1;
 
 static_assert(PARSER_INT64_MIN_MAGNITUDE == UINT64_C(1) << 63);
 
+typedef struct comparison
+{
+    token_type_t token;
+    binary_op_t  op;
+} comparison_t;
+
+static const comparison_t COMPARISONS[] = {
+    {TOKEN_EQUALS_EQUALS, BINARY_OP_EQ},
+    {TOKEN_BANG_EQUALS, BINARY_OP_NE},
+    {TOKEN_LESS, BINARY_OP_LT},
+    {TOKEN_LESS_EQUALS, BINARY_OP_LE},
+    {TOKEN_GREATER, BINARY_OP_GT},
+    {TOKEN_GREATER_EQUALS, BINARY_OP_GE},
+};
+
 static ast_node_t* parser_parse_expression(parser_t* parser);
 static ast_node_t* parser_parse_statement(parser_t* parser);
 
@@ -453,9 +468,60 @@ static ast_node_t* parser_parse_additive(parser_t* parser)
     return left;
 }
 
+static bool parser_match_comparison(parser_t* parser, binary_op_t* op)
+{
+    for (size_t i = 0; i < sizeof(COMPARISONS) / sizeof(COMPARISONS[0]); i++)
+    {
+        if (parser_match(parser, COMPARISONS[i].token))
+        {
+            *op = COMPARISONS[i].op;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static ast_node_t* parser_parse_comparison(parser_t* parser)
+{
+    ast_node_t* left = parser_parse_additive(parser);
+    if (!left)
+        return nullptr;
+
+    binary_op_t op;
+    if (!parser_match_comparison(parser, &op))
+        return left;
+
+    ast_node_t* right = parser_parse_additive(parser);
+    if (!right)
+    {
+        ast_free(left);
+        return nullptr;
+    }
+
+    source_span_t span = {.start = left->span.start, .end = right->span.end};
+
+    ast_node_t* comparison = ast_binary(span, op, left, right);
+    if (!comparison)
+        return nullptr;
+
+    binary_op_t chained;
+    if (parser_match_comparison(parser, &chained))
+    {
+        parser_report(parser,
+                      parser->previous.span,
+                      "comparison operators cannot be chained");
+
+        ast_free(comparison);
+        return nullptr;
+    }
+
+    return comparison;
+}
+
 static ast_node_t* parser_parse_expression(parser_t* parser)
 {
-    return parser_parse_additive(parser);
+    return parser_parse_comparison(parser);
 }
 
 static ast_node_t* parser_parse_let(parser_t* parser)

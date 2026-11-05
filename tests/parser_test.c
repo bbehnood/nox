@@ -1170,6 +1170,142 @@ static void test_boolean_expressions_parse(void)
     ast_free(p);
 }
 
+static void test_comparison_operators_parse(void)
+{
+    static const struct
+    {
+        const char* source;
+        binary_op_t op;
+    } cases[] = {
+        {"print(1 == 2);", BINARY_OP_EQ},
+        {"print(1 != 2);", BINARY_OP_NE},
+        {"print(1 < 2);", BINARY_OP_LT},
+        {"print(1 <= 2);", BINARY_OP_LE},
+        {"print(1 > 2);", BINARY_OP_GT},
+        {"print(1 >= 2);", BINARY_OP_GE},
+    };
+
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++)
+    {
+        ast_node_t* p = parse_ok(cases[i].source);
+
+        ASSERT(is_bin(expr_of(p), cases[i].op));
+        ASSERT(is_int(expr_of(p)->binary.left, 1));
+        ASSERT(is_int(expr_of(p)->binary.right, 2));
+
+        ast_free(p);
+    }
+}
+
+static void test_comparison_precedence(void)
+{
+    ast_node_t* p = parse_ok("print(1 + 2 < 3 * 4);");
+    ast_node_t* e = expr_of(p);
+    ASSERT(is_bin(e, BINARY_OP_LT));
+    ASSERT(is_bin(e->binary.left, BINARY_OP_ADD));
+    ASSERT(is_bin(e->binary.right, BINARY_OP_MUL));
+    ast_free(p);
+
+    p = parse_ok("print(10 - 4 == 2 * 3);");
+    e = expr_of(p);
+    ASSERT(is_bin(e, BINARY_OP_EQ));
+    ASSERT(is_bin(e->binary.left, BINARY_OP_SUB));
+    ASSERT(is_bin(e->binary.right, BINARY_OP_MUL));
+    ast_free(p);
+
+    p = parse_ok("print(-1 < 2);");
+    e = expr_of(p);
+    ASSERT(is_bin(e, BINARY_OP_LT));
+    ASSERT(is_neg(e->binary.left));
+    ASSERT(is_int(e->binary.right, 2));
+    ast_free(p);
+
+    p = parse_ok("print((1 < 2) == (3 < 4));");
+    e = expr_of(p);
+    ASSERT(is_bin(e, BINARY_OP_EQ));
+    ASSERT(is_bin(e->binary.left, BINARY_OP_LT));
+    ASSERT(is_bin(e->binary.right, BINARY_OP_LT));
+    ast_free(p);
+}
+
+static void test_comparison_span(void)
+{
+    ast_node_t* p = parse_ok("print(1 + 2 < 3);");
+    ast_node_t* e = expr_of(p);
+
+    ASSERT(is_bin(e, BINARY_OP_LT));
+    ASSERT(e->span.start == 6 && e->span.end == 15);
+
+    ast_free(p);
+}
+
+static void test_comparison_in_statements(void)
+{
+    ast_node_t* p = parse_ok("let b = 1 < 2; b = 2 >= 1; print(b == true);");
+
+    ASSERT(p && p->program.count == 3);
+
+    ASSERT(is_bin(p->program.statements[0]->let.value, BINARY_OP_LT));
+    ASSERT(is_bin(p->program.statements[1]->assign.value, BINARY_OP_GE));
+
+    ast_node_t* e = p->program.statements[2]->print.value;
+    ASSERT(is_bin(e, BINARY_OP_EQ));
+    ASSERT(e->binary.left->kind == AST_IDENTIFIER);
+    ASSERT(e->binary.right->kind == AST_BOOLEAN);
+
+    ast_free(p);
+}
+
+static void test_comparison_needs_parentheses_to_chain(void)
+{
+    ast_node_t* p = parse_ok("print((1 < 2) == (3 < 4));");
+    ast_free(p);
+
+    p = parse_ok("print((1 < 2) < 3);");
+    ASSERT(is_bin(expr_of(p), BINARY_OP_LT));
+    ASSERT(is_bin(expr_of(p)->binary.left, BINARY_OP_LT));
+    ast_free(p);
+
+    expect_fail("print(1 < 2 < 3);");
+    expect_fail("print(1 == 2 == 3);");
+    expect_fail("print(1 < 2 == true);");
+    expect_fail("print(true == 1 < 2);");
+    expect_fail("let b = 1 != 2 != 3;");
+
+    expect_diag("print(1 < 2 < 3);",
+                "comparison operators cannot be chained",
+                12,
+                13);
+    expect_diag("print(1 <= 2 <= 3);",
+                "comparison operators cannot be chained",
+                13,
+                15);
+    expect_diag("print(1 != 2 != 3);",
+                "comparison operators cannot be chained",
+                13,
+                15);
+    expect_diag("print(1 < 2 == true);",
+                "comparison operators cannot be chained",
+                12,
+                14);
+}
+
+static void test_comparison_syntax_errors(void)
+{
+    expect_fail("print(1 <);");
+    expect_fail("print(< 1);");
+    expect_fail("print(1 ==);");
+    expect_fail("print(== 1);");
+    expect_fail("print(1 < < 2);");
+    expect_fail("print(1 < 2;");
+
+    expect_diag("print(1 <);", "expected an expression, found ')'", 9, 10);
+    expect_diag("print(< 1);", "expected an expression, found '<'", 6, 7);
+    expect_diag("print(1 ==);", "expected an expression, found ')'", 10, 11);
+    expect_diag("print(!true);", "invalid character '!'", 6, 7);
+    expect_diag("print(1 ! = 2);", "invalid character '!'", 8, 9);
+}
+
 int main(void)
 {
     test_ast_constructors();
