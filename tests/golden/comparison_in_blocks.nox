@@ -1,0 +1,17 @@
+let n = 5;
+{
+    let n = 7;
+    print(n > 5);
+    {
+        let n = 1;
+        print(n > 5);
+    }
+    print(n == 7);
+}
+print(n == 5);
+let flag = true;
+{
+    let flag = 1;
+    print(flag == 1);
+}
+print(flag);

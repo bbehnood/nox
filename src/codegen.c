@@ -72,6 +72,15 @@ static void codegen_division(codegen_t* codegen)
             label);
 }
 
+static void codegen_comparison(codegen_t* codegen, const char* set_instruction)
+{
+    fprintf(codegen->out,
+            "    cmp rax, rcx\n"
+            "    %s al\n"
+            "    movzx eax, al\n",
+            set_instruction);
+}
+
 static void codegen_binary(codegen_t* codegen, const ast_node_t* node)
 {
     codegen_node(codegen, node->binary.left);
@@ -98,6 +107,30 @@ static void codegen_binary(codegen_t* codegen, const ast_node_t* node)
 
     case BINARY_OP_DIV:
         codegen_division(codegen);
+        break;
+
+    case BINARY_OP_EQ:
+        codegen_comparison(codegen, "sete");
+        break;
+
+    case BINARY_OP_NE:
+        codegen_comparison(codegen, "setne");
+        break;
+
+    case BINARY_OP_LT:
+        codegen_comparison(codegen, "setl");
+        break;
+
+    case BINARY_OP_LE:
+        codegen_comparison(codegen, "setle");
+        break;
+
+    case BINARY_OP_GT:
+        codegen_comparison(codegen, "setg");
+        break;
+
+    case BINARY_OP_GE:
+        codegen_comparison(codegen, "setge");
         break;
     }
 }
