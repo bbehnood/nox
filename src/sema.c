@@ -110,6 +110,35 @@ static bool sema_declare(sema_t*       sema,
     return true;
 }
 
+static const char* type_name(type_t type)
+{
+    switch (type)
+    {
+    case TYPE_INT:
+        return "int";
+    case TYPE_BOOL:
+        return "bool";
+    case TYPE_NONE:
+        break;
+    }
+
+    return "none";
+}
+
+static void sema_expect_type(sema_t*           sema,
+                             const ast_node_t* node,
+                             type_t            expected)
+{
+    if (node->type == expected)
+        return;
+
+    sema_report(sema,
+                node->span,
+                "expected %s, found %s",
+                type_name(expected),
+                type_name(node->type));
+}
+
 static void sema_check_node(sema_t* sema, ast_node_t* node)
 {
     if (!node || sema->failed)
@@ -119,6 +148,10 @@ static void sema_check_node(sema_t* sema, ast_node_t* node)
     {
     case AST_INTEGER:
         node->type = TYPE_INT;
+        break;
+
+    case AST_BOOLEAN:
+        node->type = TYPE_BOOL;
         break;
 
     case AST_IDENTIFIER:
@@ -146,11 +179,20 @@ static void sema_check_node(sema_t* sema, ast_node_t* node)
         if (sema->failed)
             return;
 
+        sema_expect_type(sema, node->binary.left, TYPE_INT);
+        sema_expect_type(sema, node->binary.right, TYPE_INT);
+        if (sema->failed)
+            return;
+
         node->type = TYPE_INT;
         break;
 
     case AST_UNARY:
         sema_check_node(sema, node->unary.operand);
+        if (sema->failed)
+            return;
+
+        sema_expect_type(sema, node->unary.operand, TYPE_INT);
         if (sema->failed)
             return;
 
@@ -192,6 +234,10 @@ static void sema_check_node(sema_t* sema, ast_node_t* node)
                         sema->source.data + node->assign.name.start);
             return;
         }
+
+        sema_expect_type(sema, node->assign.value, symbol->type);
+        if (sema->failed)
+            return;
 
         node->slot = symbol->slot;
         break;

@@ -39,7 +39,8 @@ typedef enum unary_op
 typedef enum type
 {
     TYPE_NONE,
-    TYPE_INT
+    TYPE_INT,
+    TYPE_BOOL,
 } type_t;
 
 typedef struct ast_statement_list

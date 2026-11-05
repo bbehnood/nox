@@ -18,6 +18,41 @@ static ast_node_t* check(sema_t* sema, const char* text, bool* ok)
     return program;
 }
 
+static void expect_sema_error(const char* text,
+                              const char* message,
+                              size_t      start,
+                              size_t      end)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p = check(&sema, text, &ok);
+
+    ASSERT(!ok);
+
+    const diagnostic_t* d = sema_error(&sema);
+    ASSERT(d != nullptr);
+    if (d && (strcmp(d->message, message) != 0 || d->span.start != start ||
+              d->span.end != end))
+    {
+        fprintf(stderr,
+                "  in \"%s\":\n    got  [%zu,%zu) \"%s\"\n    want [%zu,%zu) "
+                "\"%s\"\n",
+                text,
+                d->span.start,
+                d->span.end,
+                d->message,
+                start,
+                end,
+                message);
+    }
+    ASSERT(d && strcmp(d->message, message) == 0);
+    ASSERT(d && d->span.start == start && d->span.end == end);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
 static void test_assigns_slots(void)
 {
     sema_t sema;
@@ -611,6 +646,152 @@ static void test_types_are_set_inside_nested_blocks(void)
     sema_free(&sema);
 }
 
+static void test_boolean_literal_types(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p = check(&sema, "print(true); print(false); print(1);", &ok);
+
+    ASSERT(ok);
+    ASSERT(p->program.statements[0]->print.value->type == TYPE_BOOL);
+    ASSERT(p->program.statements[1]->print.value->type == TYPE_BOOL);
+    ASSERT(p->program.statements[2]->print.value->type == TYPE_INT);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_boolean_variables_keep_their_type(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p =
+        check(&sema, "let b = true; let n = 1; print(b); print(n);", &ok);
+
+    ASSERT(ok);
+    ASSERT(sema.symbols[0].type == TYPE_BOOL);
+    ASSERT(sema.symbols[1].type == TYPE_INT);
+    ASSERT(p->program.statements[2]->print.value->type == TYPE_BOOL);
+    ASSERT(p->program.statements[3]->print.value->type == TYPE_INT);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_boolean_assignment(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p = check(&sema, "let b = true; b = false; b = b;", &ok);
+
+    ASSERT(ok);
+    ASSERT(p->program.statements[1]->assign.value->type == TYPE_BOOL);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_assignment_cannot_change_type(void)
+{
+    expect_sema_error("let b = true; b = 1;",
+                      "expected bool, found int",
+                      18,
+                      19);
+    expect_sema_error("let a = 1; a = true;",
+                      "expected int, found bool",
+                      15,
+                      19);
+    expect_sema_error("let a = 1; let b = true; a = b;",
+                      "expected int, found bool",
+                      29,
+                      30);
+}
+
+static void test_arithmetic_requires_ints(void)
+{
+    expect_sema_error("print(true + 1);", "expected int, found bool", 6, 10);
+    expect_sema_error("print(1 + false);", "expected int, found bool", 10, 15);
+    expect_sema_error("print(true * true);", "expected int, found bool", 6, 10);
+    expect_sema_error("print(1 - (2 / true));",
+                      "expected int, found bool",
+                      15,
+                      19);
+    expect_sema_error("let b = true; print(b - 1);",
+                      "expected int, found bool",
+                      20,
+                      21);
+}
+
+static void test_negation_requires_an_int(void)
+{
+    expect_sema_error("print(-true);", "expected int, found bool", 7, 11);
+    expect_sema_error("let b = true; print(-b);",
+                      "expected int, found bool",
+                      21,
+                      22);
+}
+
+static void test_print_accepts_both_types(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p = check(&sema, "print(1 + 2); print(true);", &ok);
+
+    ASSERT(ok);
+    ASSERT(sema.slot_count == 0);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_shadowing_may_change_type(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p =
+        check(&sema,
+              "let a = 1; { let a = true; print(a); } a = 2; print(a);",
+              &ok);
+
+    ASSERT(ok);
+
+    ast_node_t* block = p->program.statements[1];
+    ASSERT(block->block.statements[1]->print.value->type == TYPE_BOOL);
+    ASSERT(p->program.statements[3]->print.value->type == TYPE_INT);
+
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_shadowed_variable_keeps_inner_type(void)
+{
+    expect_sema_error("let a = 1; { let a = true; a = 2; }",
+                      "expected bool, found int",
+                      31,
+                      32);
+}
+
+static void test_types_are_checked_inside_blocks(void)
+{
+    expect_sema_error("{ let b = true; { print(b * 2); } }",
+                      "expected int, found bool",
+                      24,
+                      25);
+}
+
+static void test_first_type_error_wins(void)
+{
+    expect_sema_error("print(true + false); print(-true);",
+                      "expected int, found bool",
+                      6,
+                      10);
+}
+
 int main(void)
 {
     test_assigns_slots();
@@ -651,6 +832,18 @@ int main(void)
     test_symbols_record_types();
     test_identifier_takes_declared_type();
     test_types_are_set_inside_nested_blocks();
+
+    test_boolean_literal_types();
+    test_boolean_variables_keep_their_type();
+    test_boolean_assignment();
+    test_assignment_cannot_change_type();
+    test_arithmetic_requires_ints();
+    test_negation_requires_an_int();
+    test_print_accepts_both_types();
+    test_shadowing_may_change_type();
+    test_shadowed_variable_keeps_inner_type();
+    test_types_are_checked_inside_blocks();
+    test_first_type_error_wins();
 
     TEST_EXIT();
 }
