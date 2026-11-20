@@ -94,6 +94,17 @@ static void test_keywords_and_identifiers(void)
     expect_single("fals", TOKEN_IDENTIFIER);
     expect_single("false1", TOKEN_IDENTIFIER);
 
+    expect_single("if", TOKEN_IF);
+    expect_single("else", TOKEN_ELSE);
+    expect_single("If", TOKEN_IDENTIFIER);
+    expect_single("ELSE", TOKEN_IDENTIFIER);
+    expect_single("iff", TOKEN_IDENTIFIER);
+    expect_single("i", TOKEN_IDENTIFIER);
+    expect_single("elsee", TOKEN_IDENTIFIER);
+    expect_single("else_", TOKEN_IDENTIFIER);
+    expect_single("elif", TOKEN_IDENTIFIER);
+    expect_single("_if", TOKEN_IDENTIFIER);
+
     expect_single("lets", TOKEN_IDENTIFIER);
     expect_single("le", TOKEN_IDENTIFIER);
     expect_single("Let", TOKEN_IDENTIFIER);
@@ -368,6 +379,20 @@ static void test_boolean_statement(void)
                  sizeof(want) / sizeof(want[0]));
 }
 
+static void test_if_else_statement(void)
+{
+    token_type_t want[] = {
+        TOKEN_IF,     TOKEN_IDENTIFIER, TOKEN_LESS,   TOKEN_INTEGER,
+        TOKEN_LBRACE, TOKEN_PRINT,      TOKEN_LPAREN, TOKEN_INTEGER,
+        TOKEN_RPAREN, TOKEN_SEMICOLON,  TOKEN_RBRACE, TOKEN_ELSE,
+        TOKEN_IF,     TOKEN_TRUE,       TOKEN_LBRACE, TOKEN_RBRACE,
+        TOKEN_ELSE,   TOKEN_LBRACE,     TOKEN_RBRACE,
+    };
+    expect_types("if x < 2 { print(1); } else if true {} else {}",
+                 want,
+                 sizeof(want) / sizeof(want[0]));
+}
+
 static void test_comparison_operators(void)
 {
     expect_single("=", TOKEN_EQUALS);
@@ -497,6 +522,7 @@ int main(void)
     test_respects_length_not_nul();
     test_lexer_init_resets_state();
     test_boolean_statement();
+    test_if_else_statement();
 
     test_comparison_operators();
     test_comparison_operator_sequences();

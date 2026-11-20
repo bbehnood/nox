@@ -28,6 +28,9 @@ typedef enum token_type
     TOKEN_TRUE,
     TOKEN_FALSE,
 
+    TOKEN_IF,
+    TOKEN_ELSE,
+
     TOKEN_PLUS,
     TOKEN_MINUS,
     TOKEN_STAR,

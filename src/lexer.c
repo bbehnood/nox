@@ -15,6 +15,8 @@ static const keyword_t KEYWORDS[] = {
     {"print", TOKEN_PRINT},
     {"true", TOKEN_TRUE},
     {"false", TOKEN_FALSE},
+    {"if", TOKEN_IF},
+    {"else", TOKEN_ELSE},
 };
 
 static bool is_identifier_start(char c)

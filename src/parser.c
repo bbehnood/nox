@@ -90,6 +90,10 @@ static const char* token_symbol(token_type_t type)
         return "'true'";
     case TOKEN_FALSE:
         return "'false'";
+    case TOKEN_IF:
+        return "'if'";
+    case TOKEN_ELSE:
+        return "'else'";
     case TOKEN_PLUS:
         return "'+'";
     case TOKEN_MINUS:
