@@ -1,0 +1,7 @@
+let a = 3;
+let b = true;
+if a < 5 { print(1); }
+if b { print(3); }
+if (a == 3) == b { print(5); }
+if (a > 5) == false { print(7); }
+if 1 + 1 == 2 { print(9); }

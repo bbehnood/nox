@@ -163,6 +163,33 @@ static void codegen_print(codegen_t* codegen, type_t type)
     }
 }
 
+static void codegen_if(codegen_t* codegen, const ast_node_t* node)
+{
+    unsigned          label       = codegen->labels++;
+    const ast_node_t* else_branch = node->conditional.else_branch;
+    const char*       false_label = else_branch ? "else" : "end";
+
+    codegen_node(codegen, node->conditional.condition);
+    fprintf(codegen->out,
+            "    test rax, rax\n"
+            "    jz .Lif_%s_%u\n",
+            false_label,
+            label);
+    codegen_node(codegen, node->conditional.then_branch);
+
+    if (else_branch)
+    {
+        fprintf(codegen->out,
+                "    jmp .Lif_end_%u\n"
+                ".Lif_else_%u:\n",
+                label,
+                label);
+        codegen_node(codegen, node->conditional.else_branch);
+    }
+
+    fprintf(codegen->out, ".Lif_end_%u:\n", label);
+}
+
 static void codegen_node(codegen_t* codegen, const ast_node_t* node)
 {
     switch (node->kind)
@@ -209,6 +236,10 @@ static void codegen_node(codegen_t* codegen, const ast_node_t* node)
     case AST_PRINT:
         codegen_node(codegen, node->print.value);
         codegen_print(codegen, node->print.value->type);
+        break;
+
+    case AST_IF:
+        codegen_if(codegen, node);
         break;
 
     case AST_BLOCK:

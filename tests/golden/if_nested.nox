@@ -1,0 +1,6 @@
+if true {
+    if false { print(1); } else { print(2); }
+}
+if true {
+    if true { print(3); }
+}
