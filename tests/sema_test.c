@@ -921,6 +921,144 @@ static void test_comparison_uses_innermost_declaration(void)
                       39);
 }
 
+static void test_if_checks_both_branches(void)
+{
+    sema_t      sema;
+    bool        ok;
+    ast_node_t* p =
+        check(&sema, "let a = 1; if a < 2 { print(a); } else { a = 3; }", &ok);
+    ASSERT(ok);
+    ast_node_t* s = p->program.statements[1];
+    ASSERT(s->kind == AST_IF && s->type == TYPE_NONE);
+    ASSERT(s->conditional.condition->type == TYPE_BOOL);
+    ASSERT(s->conditional.then_branch->block.statements[0]->print.value->slot ==
+           0);
+    ASSERT(s->conditional.else_branch->block.statements[0]->slot == 0);
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_if_accepts_bool_conditions(void)
+{
+    sema_t      sema;
+    bool        ok;
+    ast_node_t* p = check(&sema,
+                          "let b = true; if true { } if b { } if 1 < 2 { } "
+                          "if (1 == 1) == b { } else { }",
+                          &ok);
+    ASSERT(ok);
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_if_condition_must_be_a_bool(void)
+{
+    expect_sema_error("if 1 { }", "expected bool, found int", 3, 4);
+    expect_sema_error("if 1 + 2 { }", "expected bool, found int", 3, 8);
+    expect_sema_error("let n = 1; if n { }",
+                      "expected bool, found int",
+                      14,
+                      15);
+    expect_sema_error("if false { } else if 1 { }",
+                      "expected bool, found int",
+                      21,
+                      22);
+}
+
+static void test_if_branches_have_their_own_scope(void)
+{
+    sema_t sema;
+    bool   ok;
+
+    ast_node_t* p = check(&sema, "if true { let a = 1; } print(a);", &ok);
+    ASSERT(!ok);
+    ASSERT(strstr(sema_error(&sema)->message, "undeclared") != nullptr);
+    ast_free(p);
+    sema_free(&sema);
+
+    p = check(&sema, "if true { } else { let a = 1; } print(a);", &ok);
+    ASSERT(!ok);
+    ASSERT(strstr(sema_error(&sema)->message, "undeclared") != nullptr);
+    ast_free(p);
+    sema_free(&sema);
+
+    p = check(&sema, "if true { let a = 1; } else { print(a); }", &ok);
+    ASSERT(!ok);
+    ASSERT(strstr(sema_error(&sema)->message, "undeclared") != nullptr);
+    ASSERT(sema_error(&sema)->span.start == 36);
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_if_condition_is_checked_in_the_enclosing_scope(void)
+{
+    sema_t      sema;
+    bool        ok;
+    ast_node_t* p = check(&sema, "if a == 1 { let a = 2; }", &ok);
+    ASSERT(!ok);
+    ASSERT(strstr(sema_error(&sema)->message, "undeclared") != nullptr);
+    ASSERT(sema_error(&sema)->span.start == 3);
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_if_branches_may_shadow(void)
+{
+    sema_t      sema;
+    bool        ok;
+    ast_node_t* p = check(&sema,
+                          "let a = 1; if true { let a = true; print(a); } "
+                          "else { let a = 2; print(a + 1); } print(a + 1);",
+                          &ok);
+    ASSERT(ok);
+    ASSERT(sema.slot_count == 3);
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_if_slots_keep_growing(void)
+{
+    sema_t      sema;
+    bool        ok;
+    ast_node_t* p =
+        check(&sema, "if true { let a = 1; } else { let b = 2; }", &ok);
+    ASSERT(ok);
+    ASSERT(sema.slot_count == 2);
+    ast_node_t* s = p->program.statements[0];
+    ASSERT(s->conditional.then_branch->block.statements[0]->slot == 0);
+    ASSERT(s->conditional.else_branch->block.statements[0]->slot == 1);
+    ast_free(p);
+    sema_free(&sema);
+}
+
+static void test_types_are_checked_inside_branches(void)
+{
+    expect_sema_error("if true { print(true + 1); }",
+                      "expected int, found bool",
+                      16,
+                      20);
+    expect_sema_error("if true { } else { print(1 + true); }",
+                      "expected int, found bool",
+                      29,
+                      33);
+    expect_sema_error("if true { if 1 { } }",
+                      "expected bool, found int",
+                      13,
+                      14);
+    expect_sema_error("let b = true; if true { b = 1; }",
+                      "expected bool, found int",
+                      28,
+                      29);
+}
+
+static void test_if_condition_error_wins(void)
+{
+    expect_sema_error("if 1 { print(true + 1); }",
+                      "expected bool, found int",
+                      3,
+                      4);
+}
+
 int main(void)
 {
     test_assigns_slots();
@@ -982,6 +1120,16 @@ int main(void)
     test_comparison_result_is_a_bool();
     test_operands_are_checked_before_comparing();
     test_comparison_uses_innermost_declaration();
+
+    test_if_checks_both_branches();
+    test_if_accepts_bool_conditions();
+    test_if_condition_must_be_a_bool();
+    test_if_branches_have_their_own_scope();
+    test_if_condition_is_checked_in_the_enclosing_scope();
+    test_if_branches_may_shadow();
+    test_if_slots_keep_growing();
+    test_types_are_checked_inside_branches();
+    test_if_condition_error_wins();
 
     TEST_EXIT();
 }

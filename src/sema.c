@@ -280,6 +280,17 @@ static void sema_check_node(sema_t* sema, ast_node_t* node)
         sema_check_node(sema, node->print.value);
         break;
 
+    case AST_IF:
+        sema_check_node(sema, node->conditional.condition);
+        if (sema->failed)
+            return;
+        sema_expect_type(sema, node->conditional.condition, TYPE_BOOL);
+        if (sema->failed)
+            return;
+        sema_check_node(sema, node->conditional.then_branch);
+        sema_check_node(sema, node->conditional.else_branch);
+        break;
+
     case AST_BLOCK:
     {
         size_t outer_start = sema_enter_scope(sema);
