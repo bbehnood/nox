@@ -145,6 +145,28 @@ ast_node_t* ast_print(source_span_t span, ast_node_t* value)
     return node;
 }
 
+ast_node_t* ast_if(source_span_t span,
+                   ast_node_t*   condition,
+                   ast_node_t*   then_branch,
+                   ast_node_t*   else_branch)
+{
+    ast_node_t* node = ast_alloc(AST_IF);
+    if (!node)
+    {
+        ast_free(condition);
+        ast_free(then_branch);
+        ast_free(else_branch);
+        return nullptr;
+    }
+
+    node->span                    = span;
+    node->conditional.condition   = condition;
+    node->conditional.then_branch = then_branch;
+    node->conditional.else_branch = else_branch;
+
+    return node;
+}
+
 ast_node_t* ast_block(void)
 {
     ast_node_t* node = ast_alloc(AST_BLOCK);
@@ -227,6 +249,13 @@ void ast_free(ast_node_t* node)
 
     case AST_PRINT:
         ast_free(node->print.value);
+        break;
+
+    case AST_IF:
+        ast_free(node->conditional.condition);
+        ast_free(node->conditional.then_branch);
+        if (node->conditional.else_branch)
+            ast_free(node->conditional.else_branch);
         break;
 
     case AST_BLOCK:

@@ -18,6 +18,7 @@ typedef enum ast_kind
     AST_LET,
     AST_ASSIGN,
     AST_PRINT,
+    AST_IF,
 
     AST_BLOCK,
     AST_PROGRAM,
@@ -101,6 +102,13 @@ typedef struct ast_node
             struct ast_node* value;
         } print;
 
+        struct
+        {
+            struct ast_node* condition;
+            struct ast_node* then_branch;
+            struct ast_node* else_branch;
+        } conditional;
+
         ast_statement_list_t block;
         ast_statement_list_t program;
     };
@@ -134,6 +142,12 @@ ast_node_t* ast_assign(source_span_t span,
 
 [[nodiscard]]
 ast_node_t* ast_print(source_span_t span, ast_node_t* value);
+
+[[nodiscard]]
+ast_node_t* ast_if(source_span_t span,
+                   ast_node_t*   condition,
+                   ast_node_t*   then_branch,
+                   ast_node_t*   else_branch);
 
 [[nodiscard]]
 ast_node_t* ast_block(void);

@@ -139,6 +139,15 @@ static void test_ast_constructors(void)
     ast_node_t* p = ast_print(sp, ast_integer(sp, 1));
     ASSERT(p && p->kind == AST_PRINT && is_int(p->print.value, 1));
 
+    ast_node_t* cond = ast_if(sp, ast_boolean(sp, true), ast_block(), nullptr);
+    ASSERT(cond && cond->kind == AST_IF);
+    ASSERT(cond->conditional.condition->kind == AST_BOOLEAN);
+    ASSERT(cond->conditional.then_branch->kind == AST_BLOCK);
+    ASSERT(cond->conditional.else_branch == nullptr);
+    ast_node_t* cond_else =
+        ast_if(sp, ast_boolean(sp, false), ast_block(), ast_block());
+    ASSERT(cond_else && cond_else->conditional.else_branch->kind == AST_BLOCK);
+
     ast_node_t* t = ast_boolean(sp, true);
     ASSERT(t && t->kind == AST_BOOLEAN && t->boolean);
     ASSERT(t->span.start == 3 && t->span.end == 5);
@@ -161,6 +170,8 @@ static void test_ast_constructors(void)
     ast_free(p);
     ast_free(t);
     ast_free(f);
+    ast_free(cond);
+    ast_free(cond_else);
     ast_free(blk);
 }
 
@@ -1306,6 +1317,240 @@ static void test_comparison_syntax_errors(void)
     expect_diag("print(1 ! = 2);", "invalid character '!'", 8, 9);
 }
 
+static void test_if_statement(void)
+{
+    const char* src = "if true { print(1); }";
+    ast_node_t* p   = parse_ok(src);
+    ASSERT(p && p->program.count == 1);
+    ast_node_t* s = p->program.statements[0];
+    ASSERT(s->kind == AST_IF);
+    ASSERT(s->span.start == 0 && s->span.end == strlen(src));
+    ASSERT(s->conditional.condition->kind == AST_BOOLEAN);
+    ASSERT(s->conditional.then_branch->kind == AST_BLOCK);
+    ASSERT(s->conditional.then_branch->block.count == 1);
+    ASSERT(s->conditional.else_branch == nullptr);
+    ast_free(p);
+}
+
+static void test_if_else_statement(void)
+{
+    const char* src = "if true { print(1); } else { print(2); }";
+    ast_node_t* p   = parse_ok(src);
+    ASSERT(p && p->program.count == 1);
+    ast_node_t* s = p->program.statements[0];
+    ASSERT(s->kind == AST_IF);
+    ASSERT(s->span.start == 0 && s->span.end == strlen(src));
+    ASSERT(s->conditional.then_branch->kind == AST_BLOCK);
+    ASSERT(s->conditional.else_branch->kind == AST_BLOCK);
+    ASSERT(s->conditional.else_branch->block.count == 1);
+    ast_free(p);
+}
+
+static void test_else_if_chain(void)
+{
+    ast_node_t* p     = parse_ok("if a { } else if b { } else { }");
+    ast_node_t* first = p->program.statements[0];
+    ASSERT(first->kind == AST_IF);
+    ast_node_t* second = first->conditional.else_branch;
+    ASSERT(second->kind == AST_IF);
+    ASSERT(second->span.start == 14 && second->span.end == 31);
+    ASSERT(second->conditional.condition->kind == AST_IDENTIFIER);
+    ASSERT(second->conditional.else_branch->kind == AST_BLOCK);
+    ast_free(p);
+
+    p      = parse_ok("if a { } else if b { }");
+    second = p->program.statements[0]->conditional.else_branch;
+    ASSERT(second->kind == AST_IF);
+    ASSERT(second->span.start == 14 && second->span.end == 22);
+    ASSERT(second->conditional.else_branch == nullptr);
+    ast_free(p);
+}
+
+static void test_if_condition_expressions(void)
+{
+    ast_node_t* p = parse_ok("if 1 + 2 < x { }");
+    ast_node_t* c = p->program.statements[0]->conditional.condition;
+    ASSERT(is_bin(c, BINARY_OP_LT));
+    ASSERT(is_bin(c->binary.left, BINARY_OP_ADD));
+    ast_free(p);
+
+    p = parse_ok("if (x == 1) { }");
+    c = p->program.statements[0]->conditional.condition;
+    ASSERT(is_bin(c, BINARY_OP_EQ));
+    ast_free(p);
+
+    p = parse_ok("if x { }");
+    c = p->program.statements[0]->conditional.condition;
+    ASSERT(c->kind == AST_IDENTIFIER);
+    ast_free(p);
+
+    p = parse_ok("if 1 { }");
+    c = p->program.statements[0]->conditional.condition;
+    ASSERT(is_int(c, 1));
+    ast_free(p);
+}
+
+static void test_if_in_sequence_and_blocks(void)
+{
+    ast_node_t* p = parse_ok("print(1); if true { } print(2);");
+    ASSERT(p && p->program.count == 3);
+    ASSERT(p->program.statements[0]->kind == AST_PRINT);
+    ASSERT(p->program.statements[1]->kind == AST_IF);
+    ASSERT(p->program.statements[1]->span.start == 10);
+    ASSERT(p->program.statements[1]->span.end == 21);
+    ASSERT(p->program.statements[2]->kind == AST_PRINT);
+    ASSERT(p->program.statements[2]->span.start == 22);
+    ast_free(p);
+
+    p = parse_ok("{ if true { if false { print(1); } else { } } }");
+    ast_node_t* outer = p->program.statements[0];
+    ASSERT(outer->kind == AST_BLOCK && outer->block.count == 1);
+    ast_node_t* outer_if = outer->block.statements[0];
+    ASSERT(outer_if->kind == AST_IF);
+    ast_node_t* inner_if =
+        outer_if->conditional.then_branch->block.statements[0];
+    ASSERT(inner_if->kind == AST_IF);
+    ASSERT(inner_if->conditional.else_branch->kind == AST_BLOCK);
+    ast_free(p);
+}
+
+static void test_if_needs_braces_and_else_needs_a_block(void)
+{
+    expect_fail("if true print(1);");
+    expect_fail("if (true) print(1);");
+    expect_fail("if true { } else print(1);");
+    expect_fail("if true { } else true { }");
+    expect_fail("if true { } else if { }");
+    expect_fail("if true { } else if true print(1);");
+
+    expect_diag("if true print(1);",
+                "expected '{' after the if condition, found 'print'",
+                8,
+                13);
+    expect_diag("if true { } else print(1);",
+                "expected '{' or 'if' after 'else', found 'print'",
+                17,
+                22);
+    expect_diag("if true { } else",
+                "expected '{' or 'if' after 'else', found end of input",
+                16,
+                16);
+}
+
+static void test_if_syntax_errors(void)
+{
+    expect_fail("if");
+    expect_fail("if true");
+    expect_fail("if { }");
+    expect_fail("if true {");
+    expect_fail("if true { print(1);");
+    expect_fail("if true { } else {");
+    expect_fail("else { }");
+    expect_fail("if true { } else { } else { }");
+    expect_fail("if true { } else if true { } else { } else { }");
+    expect_fail("let if = 1;");
+    expect_fail("if = 1;");
+    expect_fail("print(if);");
+    expect_fail("let x = if true { };");
+
+    expect_diag("if { }", "expected an expression, found '{'", 3, 4);
+    expect_diag("else { }", "expected a statement, found 'else'", 0, 4);
+    expect_diag("if true { } else { } else { }",
+                "expected a statement, found 'else'",
+                21,
+                25);
+    expect_diag("if true { print(1);",
+                "expected '}' to close the '{', found end of input",
+                19,
+                19);
+    expect_diag("let if = 1;",
+                "expected a variable name after 'let', found 'if'",
+                4,
+                6);
+}
+
+static void test_partial_if_failures_do_not_leak(void)
+{
+    expect_fail("if true { } else { print(; }");
+    expect_fail("if true { print(; } else { }");
+    expect_fail("if 1 + { }");
+    expect_fail("if true { } else if true { } else if { }");
+    expect_fail("if true { if true { } else { } } else { if }");
+}
+
+static void nested_ifs(char* buf, size_t size, size_t depth)
+{
+    size_t len = 0;
+    for (size_t i = 0; i < depth; i++)
+        len += (size_t)snprintf(buf + len, size - len, "if true {");
+    len += (size_t)snprintf(buf + len, size - len, "print(1);");
+    for (size_t i = 0; i < depth; i++)
+        len += (size_t)snprintf(buf + len, size - len, "}");
+}
+
+static void else_if_chain(char* buf, size_t size, size_t count)
+{
+    size_t len = (size_t)snprintf(buf, size, "if true { }");
+    for (size_t i = 0; i < count; i++)
+        len += (size_t)snprintf(buf + len, size - len, " else if true { }");
+}
+
+static void test_deep_if_nesting(void)
+{
+    char buf[2048];
+    nested_ifs(buf, sizeof(buf), 100);
+    ast_node_t* p = parse_ok(buf);
+    ast_node_t* n = p->program.statements[0];
+    for (int i = 0; i < 99; i++)
+    {
+        ASSERT(n->kind == AST_IF);
+        n = n->conditional.then_branch->block.statements[0];
+    }
+    ASSERT(n->kind == AST_IF);
+    ASSERT(n->conditional.then_branch->block.statements[0]->kind == AST_PRINT);
+    ast_free(p);
+
+    nested_ifs(buf, sizeof(buf), 129);
+    expect_diag(buf,
+                "if statement is nested too deeply (limit is 256)",
+                1155,
+                1159);
+}
+
+static void test_if_inside_deeply_nested_blocks(void)
+{
+    char   buf[1024];
+    size_t len = 0;
+    for (int i = 0; i < 256; i++)
+        buf[len++] = '{';
+    len += (size_t)snprintf(buf + len, sizeof(buf) - len, "if true { }");
+    for (int i = 0; i < 256; i++)
+        buf[len++] = '}';
+    buf[len] = '\0';
+    expect_diag(buf,
+                "if statement is nested too deeply (limit is 256)",
+                259,
+                263);
+}
+
+static void test_long_else_if_chain(void)
+{
+    char buf[8192];
+    else_if_chain(buf, sizeof(buf), 100);
+    ast_node_t* p = parse_ok(buf);
+    ast_node_t* n = p->program.statements[0];
+    for (int i = 0; i < 100; i++)
+    {
+        ASSERT(n->kind == AST_IF);
+        n = n->conditional.else_branch;
+    }
+    ASSERT(n->kind == AST_IF && n->conditional.else_branch == nullptr);
+    ast_free(p);
+
+    else_if_chain(buf, sizeof(buf), 300);
+    expect_fail(buf);
+}
+
 int main(void)
 {
     test_ast_constructors();
@@ -1370,6 +1615,19 @@ int main(void)
     test_comparison_in_statements();
     test_comparison_needs_parentheses_to_chain();
     test_comparison_syntax_errors();
+
+    test_if_statement();
+    test_if_else_statement();
+    test_else_if_chain();
+    test_if_condition_expressions();
+    test_if_in_sequence_and_blocks();
+    test_if_needs_braces_and_else_needs_a_block();
+    test_if_syntax_errors();
+    test_partial_if_failures_do_not_leak();
+
+    test_deep_if_nesting();
+    test_if_inside_deeply_nested_blocks();
+    test_long_else_if_chain();
 
     TEST_EXIT();
 }

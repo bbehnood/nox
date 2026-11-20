@@ -36,6 +36,8 @@ static const comparison_t COMPARISONS[] = {
 
 static ast_node_t* parser_parse_expression(parser_t* parser);
 static ast_node_t* parser_parse_statement(parser_t* parser);
+static ast_node_t* parser_parse_block(parser_t* parser);
+static ast_node_t* parser_parse_if(parser_t* parser);
 
 static void parser_advance(parser_t* parser)
 {
@@ -621,6 +623,60 @@ static ast_node_t* parser_parse_print(parser_t* parser)
     return ast_print(span, value);
 }
 
+static ast_node_t* parser_parse_else(parser_t* parser)
+{
+    if (parser_match(parser, TOKEN_IF))
+        return parser_parse_if(parser);
+    if (!parser_expect(parser, TOKEN_LBRACE, "'{' or 'if' after 'else'"))
+        return nullptr;
+    return parser_parse_block(parser);
+}
+
+static ast_node_t* parser_parse_conditional(parser_t* parser)
+{
+    size_t      start     = parser->previous.span.start;
+    ast_node_t* condition = parser_parse_expression(parser);
+    if (!condition)
+        return nullptr;
+
+    if (!parser_expect(parser, TOKEN_LBRACE, "'{' after the if condition"))
+    {
+        ast_free(condition);
+        return nullptr;
+    }
+
+    ast_node_t* then_branch = parser_parse_block(parser);
+    if (!then_branch)
+    {
+        ast_free(condition);
+        return nullptr;
+    }
+
+    ast_node_t* else_branch = nullptr;
+    if (parser_match(parser, TOKEN_ELSE))
+    {
+        else_branch = parser_parse_else(parser);
+        if (!else_branch)
+        {
+            ast_free(condition);
+            ast_free(then_branch);
+            return nullptr;
+        }
+    }
+
+    source_span_t span = {.start = start, .end = parser->previous.span.end};
+    return ast_if(span, condition, then_branch, else_branch);
+}
+
+ast_node_t* parser_parse_if(parser_t* parser)
+{
+    if (!parser_enter(parser, "if statement"))
+        return nullptr;
+    ast_node_t* conditional = parser_parse_conditional(parser);
+    parser_leave(parser);
+    return conditional;
+}
+
 [[nodiscard]]
 static bool parser_parse_statements(parser_t*             parser,
                                     ast_statement_list_t* list,
@@ -685,6 +741,9 @@ static ast_node_t* parser_parse_statement(parser_t* parser)
 
     if (parser_match(parser, TOKEN_PRINT))
         return parser_parse_print(parser);
+
+    if (parser_match(parser, TOKEN_IF))
+        return parser_parse_if(parser);
 
     if (parser_match(parser, TOKEN_LBRACE))
         return parser_parse_block(parser);
